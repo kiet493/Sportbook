@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "1002918623194",
+    "firebase_url": "https://sportbook-e74c7-default-rtdb.firebaseio.com",
+    "project_id": "sportbook-e74c7",
+    "storage_bucket": "sportbook-e74c7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1002918623194:android:00f76c6855d8a39cd6f2e3",
+        "android_client_info": {
+          "package_name": "com.example.sportbook"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAnbTZGX4MnsHx-7nSUY-pTqz0Jon7GjU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
