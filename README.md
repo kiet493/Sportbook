@@ -3,10 +3,11 @@
 Ứng dụng đặt sân thể thao - Flutter Mobile App.
 
 ## Project Structure
+```text
 lib/
-│
 ├── main.dart
 ├── app.dart
+├── firebase_options.dart
 │
 ├── core/
 │   ├── constants/
@@ -43,10 +44,17 @@ lib/
 │   └── review_repository.dart
 │
 ├── services/
-│   ├── firebase_auth_service.dart
-│   ├── firestore_service.dart
-│   ├── storage_service.dart
-│   └── notification_service.dart
+│   ├── Firebase/
+│   │   ├── firebase_auth_service.dart
+│   │   ├── firestore_service.dart
+│   │   ├── storage_service.dart
+│   │   └── notification_service.dart
+│   │
+│   └── SQLite/
+│       ├── database_service.dart
+│       ├── booking_local.dart
+│       ├── field_local.dart
+│       └── user_local.dart
 │
 ├── viewmodels/
 │   ├── auth_viewmodel.dart
@@ -90,7 +98,5 @@ lib/
 │   ├── repository_provider.dart
 │   └── viewmodel_provider.dart
 │
-├── routes/
-│   └── app_router.dart
-│
-└── firebase_options.dart
+└── routes/
+    └── app_router.dart
