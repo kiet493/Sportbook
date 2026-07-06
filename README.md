@@ -1,17 +1,96 @@
-# sportbook
+# Sportbook
 
-A new Flutter project.
+Ứng dụng đặt sân thể thao - Flutter Mobile App.
 
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Project Structure
+lib/
+│
+├── main.dart
+├── app.dart
+│
+├── core/
+│   ├── constants/
+│   │   ├── app_colors.dart
+│   │   ├── app_strings.dart
+│   │   └── app_constants.dart
+│   │
+│   ├── theme/
+│   │   └── app_theme.dart
+│   │
+│   ├── utils/
+│   │   ├── validator.dart
+│   │   ├── formatter.dart
+│   │   └── helpers.dart
+│   │
+│   └── widgets/
+│       ├── app_button.dart
+│       ├── app_textfield.dart
+│       ├── loading.dart
+│       └── empty_widget.dart
+│
+├── models/
+│   ├── user_model.dart
+│   ├── football_field_model.dart
+│   ├── booking_model.dart
+│   ├── review_model.dart
+│   └── notification_model.dart
+│
+├── repositories/
+│   ├── auth_repository.dart
+│   ├── user_repository.dart
+│   ├── field_repository.dart
+│   ├── booking_repository.dart
+│   └── review_repository.dart
+│
+├── services/
+│   ├── firebase_auth_service.dart
+│   ├── firestore_service.dart
+│   ├── storage_service.dart
+│   └── notification_service.dart
+│
+├── viewmodels/
+│   ├── auth_viewmodel.dart
+│   ├── home_viewmodel.dart
+│   ├── field_viewmodel.dart
+│   ├── booking_viewmodel.dart
+│   ├── profile_viewmodel.dart
+│   └── admin_viewmodel.dart
+│
+├── views/
+│   ├── auth/
+│   │   ├── login_page.dart
+│   │   ├── register_page.dart
+│   │   └── forgot_password_page.dart
+│   │
+│   ├── home/
+│   │   └── home_page.dart
+│   │
+│   ├── field/
+│   │   ├── field_list_page.dart
+│   │   ├── field_detail_page.dart
+│   │   └── field_search_page.dart
+│   │
+│   ├── booking/
+│   │   ├── booking_page.dart
+│   │   ├── booking_history_page.dart
+│   │   └── booking_detail_page.dart
+│   │
+│   ├── profile/
+│   │   ├── profile_page.dart
+│   │   └── edit_profile_page.dart
+│   │
+│   └── admin/
+│       ├── dashboard_page.dart
+│       ├── manage_fields_page.dart
+│       └── manage_bookings_page.dart
+│
+├── providers/
+│   ├── firebase_provider.dart
+│   ├── auth_provider.dart
+│   ├── repository_provider.dart
+│   └── viewmodel_provider.dart
+│
+├── routes/
+│   └── app_router.dart
+│
+└── firebase_options.dart
