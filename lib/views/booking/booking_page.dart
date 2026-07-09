@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import '../models/venue.dart';
+import '../../models/venue.dart';
 
-class BookingScreen extends StatefulWidget {
+class BookingPage extends StatefulWidget {
   final Venue venue;
   final VoidCallback onBack;
   final VoidCallback onConfirm;
 
-  const BookingScreen({
+  const BookingPage({
     Key? key,
     required this.venue,
     required this.onBack,
@@ -14,10 +14,10 @@ class BookingScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<BookingScreen> createState() => _BookingScreenState();
+  State<BookingPage> createState() => _BookingPageState();
 }
 
-class _BookingScreenState extends State<BookingScreen> {
+class _BookingPageState extends State<BookingPage> {
   String _selectedDate = "Thứ 7, 12/07";
   String _selectedTime = "19:00";
   int _duration = 1;

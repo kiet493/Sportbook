@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../models/venue.dart';
-import '../core/widgets/bottom_nav.dart';
+import '../../models/venue.dart';
+import '../../core/widgets/bottom_nav.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomePage extends StatefulWidget {
   final Function(Venue) onVenueTap;
   final Function(String) onNav;
   final String activeNav;
 
-  const HomeScreen({
+  const HomePage({
     Key? key,
     required this.onVenueTap,
     required this.onNav,
@@ -16,10 +16,10 @@ class HomeScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomePage> createState() => _HomePageState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomePageState extends State<HomePage> {
   String _activeSport = "Bóng đá";
   String _activeFilter = "Tất cả";
   int _activeBannerIndex = 0;

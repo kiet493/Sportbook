@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import '../models/venue.dart';
-import '../core/widgets/bottom_nav.dart';
+import '../../models/venue.dart';
+import '../../core/widgets/bottom_nav.dart';
 
-class SearchScreen extends StatefulWidget {
+class FieldSearchPage extends StatefulWidget {
   final VoidCallback onBack;
   final Function(Venue) onVenueTap;
   final Function(String) onNav;
   final String activeNav;
 
-  const SearchScreen({
+  const FieldSearchPage({
     Key? key,
     required this.onBack,
     required this.onVenueTap,
@@ -17,10 +17,10 @@ class SearchScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<SearchScreen> createState() => _SearchScreenState();
+  State<FieldSearchPage> createState() => _FieldSearchPageState();
 }
 
-class _SearchScreenState extends State<SearchScreen> {
+class _FieldSearchPageState extends State<FieldSearchPage> {
   final _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   String _query = "";

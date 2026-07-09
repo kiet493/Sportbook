@@ -72,19 +72,23 @@ lib/
 │   │   ├── register_page.dart
 │   │   └── forgot_password_page.dart
 │   │
+│   ├── onboarding/
+│   │   └── onboarding_page.dart
+│   │
 │   ├── home/
 │   │   └── home_page.dart
 │   │
 │   ├── field/
 │   │   ├── field_list_page.dart
 │   │   ├── field_detail_page.dart
-│   │   └── field_search_page.dart
+│   │   ├── field_search_page.dart
+│   │   └── favorites_page.dart
 │   │
 │   ├── booking/
 │   │   ├── booking_page.dart
 │   │   ├── booking_history_page.dart
 │   │   ├── booking_detail_page.dart
-│   │   └── widgets/                # widget riêng cho từng màn booking
+│   │   └── booking_success_page.dart
 │   │
 │   ├── profile/
 │   │   ├── profile_page.dart

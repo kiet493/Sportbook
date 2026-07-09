@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import '../core/widgets/bottom_nav.dart';
+import '../../core/widgets/bottom_nav.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfilePage extends StatelessWidget {
   final Function(String) onNav;
   final String activeNav;
   final VoidCallback onLogout;
 
-  const ProfileScreen({
+  const ProfilePage({
     Key? key,
     required this.onNav,
     required this.activeNav,

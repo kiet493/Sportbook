@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 
-class RegisterScreen extends StatefulWidget {
+class RegisterPage extends StatefulWidget {
   final VoidCallback onSuccess;
   final VoidCallback onLogin;
 
-  const RegisterScreen({
+  const RegisterPage({
     Key? key,
     required this.onSuccess,
     required this.onLogin,
   }) : super(key: key);
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterPageState extends State<RegisterPage> {
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();

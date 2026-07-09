@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import '../models/venue.dart';
+import '../../models/venue.dart';
 
-class DetailScreen extends StatefulWidget {
+class FieldDetailPage extends StatefulWidget {
   final Venue venue;
   final VoidCallback onBack;
   final VoidCallback onBook;
   final Function(String) onNav;
   final String activeNav;
 
-  const DetailScreen({
+  const FieldDetailPage({
     Key? key,
     required this.venue,
     required this.onBack,
@@ -18,10 +18,10 @@ class DetailScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<DetailScreen> createState() => _DetailScreenState();
+  State<FieldDetailPage> createState() => _FieldDetailPageState();
 }
 
-class _DetailScreenState extends State<DetailScreen> {
+class _FieldDetailPageState extends State<FieldDetailPage> {
   int _imgIdx = 0;
   bool _isFav = false;
   String _selectedDate = "Hôm nay";
