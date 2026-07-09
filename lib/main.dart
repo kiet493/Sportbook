@@ -10,7 +10,7 @@ import 'screens/profile_screen.dart';
 import 'screens/detail_screen.dart';
 import 'screens/booking_screen.dart';
 import 'screens/success_screen.dart';
-import 'screens/booking_history_screen.dart';
+import 'views/booking/booking_history_screen.dart';
 import 'views/booking/booking_detail_page.dart';
 
 void main() {
