@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/venue.dart';
-import '../widgets/bottom_nav.dart';
+import '../core/widgets/bottom_nav.dart';
 
 class SearchScreen extends StatefulWidget {
   final VoidCallback onBack;

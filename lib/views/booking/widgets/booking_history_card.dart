@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/status_badge.dart';
 import '../../../models/venue.dart';
-import 'booking_status_badge.dart';
 
 class BookingHistoryCard extends StatelessWidget {
   final BookingInfo booking;
@@ -112,7 +112,7 @@ class _BookingHistoryCardInfo extends StatelessWidget {
                 ),
               ),
             ),
-            BookingStatusBadge(status: booking.status),
+            StatusBadge(status: booking.status),
           ],
         ),
         const SizedBox(height: 4),

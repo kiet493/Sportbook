@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/venue.dart';
-import '../widgets/bottom_nav.dart';
+import '../core/widgets/bottom_nav.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(Venue) onVenueTap;
