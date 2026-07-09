@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../widgets/bottom_nav.dart';
+import '../../core/widgets/bottom_nav.dart';
 
 class FavoritesScreen extends StatelessWidget {
   final Function(String) onNav;

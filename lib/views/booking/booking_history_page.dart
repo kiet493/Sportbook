@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../models/venue.dart';
-import '../../widgets/bottom_nav.dart';
+import '../../core/widgets/bottom_nav.dart';
 import 'widgets/booking_history_card.dart';
 import 'widgets/booking_history_empty_state.dart';
 import 'widgets/booking_history_header.dart';
 
-class BookingHistoryScreen extends StatefulWidget {
+class BookingHistoryPage extends StatefulWidget {
   final VoidCallback onBack;
   final ValueChanged<BookingInfo> onViewDetail;
   final ValueChanged<String> onNav;
   final String activeNav;
 
-  const BookingHistoryScreen({
+  const BookingHistoryPage({
     super.key,
     required this.onBack,
     required this.onViewDetail,
@@ -21,10 +21,10 @@ class BookingHistoryScreen extends StatefulWidget {
   });
 
   @override
-  State<BookingHistoryScreen> createState() => _BookingHistoryScreenState();
+  State<BookingHistoryPage> createState() => _BookingHistoryPageState();
 }
 
-class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
+class _BookingHistoryPageState extends State<BookingHistoryPage> {
   String _activeTab = "upcoming";
   String _searchQuery = "";
   final _searchController = TextEditingController();
