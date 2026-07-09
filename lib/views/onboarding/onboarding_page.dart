@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
-import '../models/venue.dart';
+import '../../models/venue.dart';
 
-class OnboardingScreen extends StatefulWidget {
+class OnboardingPage extends StatefulWidget {
   final VoidCallback onComplete;
   final VoidCallback onSignIn;
 
-  const OnboardingScreen({
+  const OnboardingPage({
     Key? key,
     required this.onComplete,
     required this.onSignIn,
   }) : super(key: key);
 
   @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
+  State<OnboardingPage> createState() => _OnboardingPageState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingPageState extends State<OnboardingPage> {
   final PageController _pageController = PageController();
   int _currentIndex = 0;
 

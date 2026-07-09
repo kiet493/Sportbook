@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../core/widgets/bottom_nav.dart';
 
-class FavoritesScreen extends StatelessWidget {
+class FavoritesPage extends StatelessWidget {
   final Function(String) onNav;
   final String activeNav;
 
-  const FavoritesScreen({
+  const FavoritesPage({
     Key? key,
     required this.onNav,
     required this.activeNav,

@@ -1,13 +1,13 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import '../models/venue.dart';
+import '../../models/venue.dart';
 
-class SuccessScreen extends StatefulWidget {
+class BookingSuccessPage extends StatefulWidget {
   final Venue venue;
   final VoidCallback onHome;
   final VoidCallback onViewBooking;
 
-  const SuccessScreen({
+  const BookingSuccessPage({
     Key? key,
     required this.venue,
     required this.onHome,
@@ -15,10 +15,10 @@ class SuccessScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<SuccessScreen> createState() => _SuccessScreenState();
+  State<BookingSuccessPage> createState() => _BookingSuccessPageState();
 }
 
-class _SuccessScreenState extends State<SuccessScreen> with SingleTickerProviderStateMixin {
+class _BookingSuccessPageState extends State<BookingSuccessPage> with SingleTickerProviderStateMixin {
   late AnimationController _confettiController;
   late List<ConfettiDot> _dots;
   final String _bookingId = "BK${Random().nextInt(90000) + 10000}";

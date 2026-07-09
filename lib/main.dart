@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'models/venue.dart';
-import 'screens/onboarding_screen.dart';
-import 'screens/login_screen.dart';
-import 'screens/register_screen.dart';
-import 'screens/home_screen.dart';
-import 'screens/search_screen.dart';
-import 'screens/favorites_screen.dart';
-import 'screens/profile_screen.dart';
-import 'screens/detail_screen.dart';
-import 'screens/booking_screen.dart';
-import 'screens/success_screen.dart';
+import 'views/onboarding/onboarding_page.dart';
+import 'views/auth/login_page.dart';
+import 'views/auth/register_page.dart';
+import 'views/home/home_page.dart';
+import 'views/field/field_search_page.dart';
+import 'views/field/favorites_page.dart';
+import 'views/profile/profile_page.dart';
+import 'views/field/field_detail_page.dart';
+import 'views/booking/booking_page.dart';
+import 'views/booking/booking_success_page.dart';
 import 'views/booking/booking_history_page.dart';
 import 'views/booking/booking_detail_page.dart';
 
@@ -99,21 +99,21 @@ class _AppControllerState extends State<AppController> {
 
     // 1. Onboarding Phase
     if (_phase == "onboarding") {
-      activeWidget = OnboardingScreen(
+      activeWidget = OnboardingPage(
         onComplete: () => _transitionPhase("login"),
         onSignIn: () => _transitionPhase("login"),
       );
     }
     // 2. Login Phase
     else if (_phase == "login") {
-      activeWidget = LoginScreen(
+      activeWidget = LoginPage(
         onSuccess: () => _transitionPhase("home"),
         onRegister: () => _transitionPhase("register"),
       );
     }
     // 3. Register Phase
     else if (_phase == "register") {
-      activeWidget = RegisterScreen(
+      activeWidget = RegisterPage(
         onSuccess: () => _transitionPhase("login"),
         onLogin: () => _transitionPhase("login"),
       );
@@ -122,14 +122,14 @@ class _AppControllerState extends State<AppController> {
     else {
       switch (_screen) {
         case "home":
-          activeWidget = HomeScreen(
+          activeWidget = HomePage(
             onVenueTap: _goVenue,
             onNav: _goScreen,
             activeNav: _screen,
           );
           break;
         case "search":
-          activeWidget = SearchScreen(
+          activeWidget = FieldSearchPage(
             onBack: () => _goScreen("home"),
             onVenueTap: _goVenue,
             onNav: _goScreen,
@@ -156,17 +156,17 @@ class _AppControllerState extends State<AppController> {
           );
           break;
         case "favorites":
-          activeWidget = FavoritesScreen(onNav: _goScreen, activeNav: _screen);
+          activeWidget = FavoritesPage(onNav: _goScreen, activeNav: _screen);
           break;
         case "profile":
-          activeWidget = ProfileScreen(
+          activeWidget = ProfilePage(
             onNav: _goScreen,
             activeNav: _screen,
             onLogout: () => _transitionPhase("login"),
           );
           break;
         case "detail":
-          activeWidget = DetailScreen(
+          activeWidget = FieldDetailPage(
             venue: _selectedVenue,
             onBack: () => _goScreen("home"),
             onBook: _goBooking,
@@ -175,14 +175,14 @@ class _AppControllerState extends State<AppController> {
           );
           break;
         case "booking":
-          activeWidget = BookingScreen(
+          activeWidget = BookingPage(
             venue: _selectedVenue,
             onBack: () => _goScreen("detail"),
             onConfirm: _goSuccess,
           );
           break;
         case "success":
-          activeWidget = SuccessScreen(
+          activeWidget = BookingSuccessPage(
             venue: _selectedVenue,
             onHome: () => _goScreen("home"),
             onViewBooking: () {
@@ -194,7 +194,7 @@ class _AppControllerState extends State<AppController> {
           );
           break;
         default:
-          activeWidget = HomeScreen(
+          activeWidget = HomePage(
             onVenueTap: _goVenue,
             onNav: _goScreen,
             activeNav: "home",
