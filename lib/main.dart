@@ -10,8 +10,8 @@ import 'screens/profile_screen.dart';
 import 'screens/detail_screen.dart';
 import 'screens/booking_screen.dart';
 import 'screens/success_screen.dart';
-import 'screens/booking_detail_screen.dart';
 import 'views/booking/booking_history_screen.dart';
+import 'views/booking/booking_detail_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -150,7 +150,7 @@ class _AppControllerState extends State<AppController> {
           );
           break;
         case "booking-detail":
-          activeWidget = BookingDetailScreen(
+          activeWidget = BookingDetailPage(
             booking: _selectedBooking,
             onBack: () => _goScreen("history"),
           );
