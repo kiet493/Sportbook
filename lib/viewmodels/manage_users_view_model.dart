@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/user_model.dart';
 import '../providers/manage_users_providers.dart';
+import '../services/Firebase/firebase_auth_service.dart';
 
 /// Async state for the manage-users screen.
 ///
@@ -81,9 +82,20 @@ class ManageUsersViewModel extends AsyncNotifier<List<ManageUsersItem>> {
 
   /// Create flow: validate (handled inside the repository), persist,
   /// then re-emit so subscribers see the new row immediately.
-  Future<UserModel> create(UserModel user) async {
+  Future<UserModel> create(UserModel user, {required String password}) async {
     final repo = ref.read(userRepositoryProvider);
-    final created = await repo.createUser(user);
+    repo.ensureValid(user);
+    await repo.ensureUnique(user);
+
+    final authUser = await FirebaseAuthService()
+        .createUserWithoutChangingSession(
+      email: user.email.trim().toLowerCase(),
+      password: password,
+      displayName: user.fullName,
+    );
+    final created = await repo.createUser(
+      user.copyWith(id: authUser.uid, email: authUser.email),
+    );
     // The stream subscription will pick up the change and refresh
     // `state` automatically — but we expose this future so callers
     // can await confirmation and show a snackbar.

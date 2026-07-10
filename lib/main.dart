@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'models/venue.dart';
+import 'models/user_model.dart';
 import 'firebase_options.dart';
 import 'providers/firebase_providers.dart';
+import 'providers/registration_providers.dart';
 import 'routes/app_router.dart';
+import 'views/admin/manage_users_page.dart';
 import 'views/onboarding/onboarding_page.dart';
 import 'views/auth/login_page.dart';
 import 'views/auth/register_page.dart';
@@ -72,14 +75,14 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AppController extends StatefulWidget {
+class AppController extends ConsumerStatefulWidget {
   const AppController({super.key});
 
   @override
-  State<AppController> createState() => _AppControllerState();
+  ConsumerState<AppController> createState() => _AppControllerState();
 }
 
-class _AppControllerState extends State<AppController> {
+class _AppControllerState extends ConsumerState<AppController> {
   String _phase = "onboarding";
   String _screen =
       "home"; // home, search, history, favorites, profile, detail, booking, success, booking-detail
@@ -97,8 +100,19 @@ class _AppControllerState extends State<AppController> {
   void _transitionPhase(String to) {
     setState(() {
       _phase = to;
-      _screen = "home";
+      _screen = _initialScreenForPhase(to);
     });
+  }
+
+  String _initialScreenForPhase(String phase) {
+    if (phase != "home") return "home";
+
+    final user = ref.read(sessionProvider)?.user;
+    if (user != null && user.isAdmin && !user.isBanned) {
+      return "admin";
+    }
+
+    return "home";
   }
 
   void _goScreen(String s) {
@@ -189,6 +203,12 @@ class _AppControllerState extends State<AppController> {
             onNav: _goScreen,
             activeNav: _screen,
             onLogout: () => _transitionPhase("login"),
+          );
+          break;
+        case "admin":
+          activeWidget = RoleGuard(
+            requiredRole: UserRole.admin,
+            child: ManageUsersPage(onBack: () => _goScreen("home")),
           );
           break;
         case "detail":

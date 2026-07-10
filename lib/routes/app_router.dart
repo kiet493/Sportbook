@@ -81,11 +81,26 @@ class RoleGuard extends ConsumerWidget {
       return const _BannedScaffold();
     }
 
-    if (requiredRole != null && user.role != requiredRole) {
+    if (!_hasRequiredRole(user, requiredRole)) {
       return const _ForbiddenScaffold();
     }
 
     return child;
+  }
+}
+
+bool _hasRequiredRole(UserModel user, String? requiredRole) {
+  switch (requiredRole) {
+    case null:
+      return true;
+    case UserRole.admin:
+      return user.isAdmin;
+    case UserRole.staff:
+      return user.isStaff || user.isAdmin;
+    case UserRole.user:
+      return true;
+    default:
+      return user.role.trim().toLowerCase() == requiredRole;
   }
 }
 

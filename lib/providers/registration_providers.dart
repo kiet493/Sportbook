@@ -207,24 +207,64 @@ Future<UserModel> _ensureProfileForSignedInUser({
   required User firebaseUser,
   required String fallbackEmail,
 }) async {
-  try {
-    final existing = await repo.fetch(firebaseUser.uid);
-    if (existing != null) return existing;
+  final email = (firebaseUser.email ?? fallbackEmail).trim().toLowerCase();
+  final candidates = <UserModel>[];
+  var permissionDenied = false;
 
-    final generatedProfile = _profileFromFirebaseUser(
-      firebaseUser: firebaseUser,
-      fallbackEmail: fallbackEmail,
-    );
-    return repo.createUser(generatedProfile);
+  try {
+    final byUid = await repo.fetch(firebaseUser.uid);
+    if (byUid != null) candidates.add(byUid);
   } on FirebaseException catch (e) {
-    if (e.code == 'permission-denied') {
-      return _profileFromFirebaseUser(
-        firebaseUser: firebaseUser,
-        fallbackEmail: fallbackEmail,
-      );
-    }
-    rethrow;
+    permissionDenied = e.code == 'permission-denied';
+    if (e.code != 'permission-denied') rethrow;
   }
+
+  try {
+    if (email.isNotEmpty) {
+      final byEmail = await repo.fetchByEmail(email);
+      if (byEmail != null) candidates.add(byEmail);
+    }
+  } on FirebaseException catch (e) {
+    permissionDenied = permissionDenied || e.code == 'permission-denied';
+    if (e.code != 'permission-denied') rethrow;
+  }
+
+  final existing = _pickBestSignedInProfile(candidates);
+  if (existing != null &&
+      (!permissionDenied || existing.isAdmin || existing.isStaff)) {
+    return existing;
+  }
+
+  if (permissionDenied) {
+    throw FirebaseException(
+      plugin: 'cloud_firestore',
+      code: 'permission-denied',
+      message: 'Firestore chưa cấp quyền đọc users cho tài khoản này.',
+    );
+  }
+
+  final generatedProfile = _profileFromFirebaseUser(
+    firebaseUser: firebaseUser,
+    fallbackEmail: fallbackEmail,
+  );
+
+  return repo.createUser(generatedProfile);
+}
+
+UserModel? _pickBestSignedInProfile(List<UserModel> users) {
+  if (users.isEmpty) return null;
+
+  for (final user in users) {
+    if (user.isAdmin && !user.isBanned) return user;
+  }
+  for (final user in users) {
+    if (user.isStaff && !user.isBanned) return user;
+  }
+  for (final user in users) {
+    if (!user.isBanned) return user;
+  }
+
+  return users.first;
 }
 
 UserModel _profileFromFirebaseUser({

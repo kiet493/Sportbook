@@ -44,7 +44,7 @@ class FirestoreService {
         : null;
 
     try {
-      return await _fetchByFirebaseUid(id) ?? directUser;
+      return await _fetchBestByFirebaseUid(id, fallback: directUser);
     } on FirebaseException catch (error) {
       if (directUser != null && error.code == 'permission-denied') {
         return directUser;
@@ -54,14 +54,47 @@ class FirestoreService {
     }
   }
 
-  Future<UserModel?> _fetchByFirebaseUid(String id) async {
+  Future<UserModel?> fetchUserByEmail(String email) async {
     final snap = await _usersRef
-        .where('firebaseUID', isEqualTo: id)
-        .limit(1)
+        .where('email', isEqualTo: email.trim().toLowerCase())
         .get();
-    if (snap.docs.isEmpty) return null;
-    final doc = snap.docs.first;
-    return UserModel.fromJson(doc.data(), fallbackId: doc.id);
+    final users = snap.docs
+        .map((doc) => UserModel.fromJson(doc.data(), fallbackId: doc.id))
+        .toList(growable: false);
+
+    return _pickBestProfile(users);
+  }
+
+  Future<UserModel?> _fetchBestByFirebaseUid(
+    String id, {
+    UserModel? fallback,
+  }) async {
+    final snap = await _usersRef.where('firebaseUID', isEqualTo: id).get();
+    final users = snap.docs
+        .map((doc) => UserModel.fromJson(doc.data(), fallbackId: doc.id))
+        .toList(growable: false);
+
+    if (fallback != null && users.every((user) => user.id != fallback.id)) {
+      return _pickBestProfile([...users, fallback]);
+    }
+
+    return _pickBestProfile(users) ?? fallback;
+  }
+
+  UserModel? _pickBestProfile(List<UserModel> users) {
+    if (users.isEmpty) return null;
+
+    for (final user in users) {
+      if (user.isAdmin && !user.isBanned) return user;
+    }
+    for (final user in users) {
+      if (user.isStaff && !user.isBanned) return user;
+    }
+    for (final user in users) {
+      if (!user.isBanned) return user;
+    }
+
+    return users.first;
   }
 
   Future<List<UserModel>> findByField({
