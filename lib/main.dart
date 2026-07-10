@@ -1,5 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'models/venue.dart';
+import 'providers/manage_users_providers.dart';
+import 'routes/app_router.dart';
 import 'views/onboarding/onboarding_page.dart';
 import 'views/auth/login_page.dart';
 import 'views/auth/register_page.dart';
@@ -14,7 +19,11 @@ import 'views/booking/booking_history_page.dart';
 import 'views/booking/booking_detail_page.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    const ProviderScope(
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -33,6 +42,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Inter',
       ),
+      onGenerateRoute: AppRouter.onGenerateRoute,
       home: const AppController(),
     );
   }
@@ -46,7 +56,7 @@ class AppController extends StatefulWidget {
 }
 
 class _AppControllerState extends State<AppController> {
-  String _phase = "onboarding"; // onboarding, login, register, home
+  String _phase = "onboarding";
   String _screen =
       "home"; // home, search, history, favorites, profile, detail, booking, success, booking-detail
 
@@ -56,7 +66,6 @@ class _AppControllerState extends State<AppController> {
   @override
   void initState() {
     super.initState();
-    // Default initial selections
     _selectedVenue = VENUES[0];
     _selectedBooking = MOCK_BOOKINGS[0];
   }
@@ -64,7 +73,7 @@ class _AppControllerState extends State<AppController> {
   void _transitionPhase(String to) {
     setState(() {
       _phase = to;
-      _screen = "home"; // Reset sub screen on phase change
+      _screen = "home";
     });
   }
 
@@ -97,29 +106,22 @@ class _AppControllerState extends State<AppController> {
   Widget build(BuildContext context) {
     Widget activeWidget;
 
-    // 1. Onboarding Phase
     if (_phase == "onboarding") {
       activeWidget = OnboardingPage(
         onComplete: () => _transitionPhase("login"),
         onSignIn: () => _transitionPhase("login"),
       );
-    }
-    // 2. Login Phase
-    else if (_phase == "login") {
+    } else if (_phase == "login") {
       activeWidget = LoginPage(
         onSuccess: () => _transitionPhase("home"),
         onRegister: () => _transitionPhase("register"),
       );
-    }
-    // 3. Register Phase
-    else if (_phase == "register") {
+    } else if (_phase == "register") {
       activeWidget = RegisterPage(
         onSuccess: () => _transitionPhase("login"),
         onLogin: () => _transitionPhase("login"),
       );
-    }
-    // 4. Home Phase (sub-navigation screens)
-    else {
+    } else {
       switch (_screen) {
         case "home":
           activeWidget = HomePage(
@@ -202,7 +204,6 @@ class _AppControllerState extends State<AppController> {
       }
     }
 
-    // High fidelity transition matching the CSS `@keyframes screen-in`
     return Scaffold(
       backgroundColor: Colors.black,
       body: Center(
