@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
-class ProfileUserCard extends StatelessWidget {
-  const ProfileUserCard({super.key});
+import '../../../models/user_model.dart';
 
-  static const _avatarUrl =
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&auto=format";
+class ProfileUserCard extends StatelessWidget {
+  final UserModel? user;
+
+  const ProfileUserCard({super.key, required this.user});
 
   @override
   Widget build(BuildContext context) {
+    final name = _displayName;
+    final email = _displayEmail;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -22,84 +26,160 @@ class ProfileUserCard extends StatelessWidget {
           ),
         ],
       ),
-      child: const Row(
+      child: Row(
         children: [
-          _ProfileAvatar(imageUrl: _avatarUrl),
-          SizedBox(width: 16),
-          Expanded(child: _ProfileUserInfo()),
+          _ProfileAvatar(imageUrl: user?.avatarUrl.trim() ?? '', name: name),
+          const SizedBox(width: 16),
+          Expanded(
+            child: _ProfileUserInfo(
+              name: name,
+              email: email,
+              role: user?.role ?? UserRole.user,
+              isBanned: user?.isBanned ?? false,
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  String get _displayName {
+    final fullName = user?.fullName.trim() ?? '';
+    if (fullName.isNotEmpty) return fullName;
+
+    final email = user?.email.trim() ?? '';
+    if (email.isNotEmpty) return email.split('@').first;
+
+    return 'Người dùng SportBook';
+  }
+
+  String get _displayEmail {
+    final email = user?.email.trim() ?? '';
+    return email.isNotEmpty ? email : 'Chưa có email';
   }
 }
 
 class _ProfileAvatar extends StatelessWidget {
   final String imageUrl;
+  final String name;
 
-  const _ProfileAvatar({required this.imageUrl});
+  const _ProfileAvatar({required this.imageUrl, required this.name});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 64,
       height: 64,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFF2563EB), width: 2),
-        image: DecorationImage(
-          image: NetworkImage(imageUrl),
-          fit: BoxFit.cover,
-        ),
       ),
+      child: imageUrl.isEmpty
+          ? _FallbackAvatar(name: name)
+          : Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => _FallbackAvatar(name: name),
+            ),
     );
   }
 }
 
 class _ProfileUserInfo extends StatelessWidget {
-  const _ProfileUserInfo();
+  final String name;
+  final String email;
+  final String role;
+  final bool isBanned;
+
+  const _ProfileUserInfo({
+    required this.name,
+    required this.email,
+    required this.role,
+    required this.isBanned,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          "Nguy\u1ec5n Minh Tu\u1ea5n",
-          style: TextStyle(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
             color: Color(0xFF0F172A),
           ),
         ),
         Text(
-          "minhtuanfootball@gmail.com",
-          style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+          email,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
         ),
-        SizedBox(height: 6),
-        _MembershipBadge(),
+        const SizedBox(height: 6),
+        _MembershipBadge(
+          label: isBanned
+              ? UserStatus.label(UserStatus.banned)
+              : UserRole.label(role),
+          isBanned: isBanned,
+        ),
       ],
     );
   }
 }
 
 class _MembershipBadge extends StatelessWidget {
-  const _MembershipBadge();
+  final String label;
+  final bool isBanned;
+
+  const _MembershipBadge({required this.label, required this.isBanned});
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    final color = isBanned ? const Color(0xFFDC2626) : const Color(0xFFD97706);
+
+    return Row(
       children: [
-        Icon(Icons.star, size: 12, color: Colors.amber),
-        SizedBox(width: 4),
+        Icon(isBanned ? Icons.lock : Icons.star, size: 12, color: color),
+        const SizedBox(width: 4),
         Text(
-          "Th\u00e0nh vi\u00ean V\u00e0ng",
+          label,
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.bold,
-            color: Color(0xFFD97706),
+            color: color,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FallbackAvatar extends StatelessWidget {
+  final String name;
+
+  const _FallbackAvatar({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = name.trim().isEmpty ? 'S' : name.trim()[0].toUpperCase();
+
+    return ColoredBox(
+      color: const Color(0xFFEFF6FF),
+      child: Center(
+        child: Text(
+          initial,
+          style: const TextStyle(
+            color: Color(0xFF2563EB),
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
     );
   }
 }

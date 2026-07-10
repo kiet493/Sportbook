@@ -1,9 +1,10 @@
-import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'models/venue.dart';
-import 'providers/manage_users_providers.dart';
+import 'firebase_options.dart';
+import 'providers/firebase_providers.dart';
 import 'routes/app_router.dart';
 import 'views/onboarding/onboarding_page.dart';
 import 'views/auth/login_page.dart';
@@ -18,12 +19,35 @@ import 'views/booking/booking_success_page.dart';
 import 'views/booking/booking_history_page.dart';
 import 'views/booking/booking_detail_page.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final firebaseStartupError = await _initializeFirebase();
+
   runApp(
-    const ProviderScope(
-      child: MyApp(),
+    ProviderScope(
+      overrides: [
+        firebaseStartupErrorProvider.overrideWithValue(firebaseStartupError),
+      ],
+      child: const MyApp(),
     ),
   );
+}
+
+Future<String?> _initializeFirebase() async {
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+    return null;
+  } on StateError catch (e) {
+    return e.message;
+  } on FirebaseException catch (e) {
+    return e.message ?? 'Không thể khởi tạo Firebase (${e.code})';
+  } catch (e) {
+    return 'Không thể khởi tạo Firebase: $e';
+  }
 }
 
 class MyApp extends StatelessWidget {

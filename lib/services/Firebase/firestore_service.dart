@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../../models/user_model.dart';
 
@@ -12,17 +13,18 @@ import '../../models/user_model.dart';
 /// [UserRepository] — that layer is what the Riverpod notifiers depend on.
 class FirestoreService {
   FirestoreService({FirebaseFirestore? firestore})
-      : _db = firestore ?? FirebaseFirestore.instance;
+    : _db = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _db;
 
   static const String usersCollection = 'users';
 
-  CollectionReference<Map<String, dynamic>> get _usersRef =>
-      _db.collection(usersCollection).withConverter<Map<String, dynamic>>(
-            fromFirestore: (snap, _) => snap.data() ?? <String, dynamic>{},
-            toFirestore: (data, _) => data,
-          );
+  CollectionReference<Map<String, dynamic>> get _usersRef => _db
+      .collection(usersCollection)
+      .withConverter<Map<String, dynamic>>(
+        fromFirestore: (snap, _) => snap.data() ?? <String, dynamic>{},
+        toFirestore: (data, _) => data,
+      );
 
   Stream<List<UserModel>> watchAllUsers() {
     return _usersRef
@@ -37,8 +39,29 @@ class FirestoreService {
 
   Future<UserModel?> fetchUser(String id) async {
     final snap = await _usersRef.doc(id).get();
-    if (!snap.exists) return null;
-    return UserModel.fromJson(snap.data()!, fallbackId: snap.id);
+    final directUser = snap.exists
+        ? UserModel.fromJson(snap.data()!, fallbackId: snap.id)
+        : null;
+
+    try {
+      return await _fetchByFirebaseUid(id) ?? directUser;
+    } on FirebaseException catch (error) {
+      if (directUser != null && error.code == 'permission-denied') {
+        return directUser;
+      }
+
+      rethrow;
+    }
+  }
+
+  Future<UserModel?> _fetchByFirebaseUid(String id) async {
+    final snap = await _usersRef
+        .where('firebaseUID', isEqualTo: id)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    final doc = snap.docs.first;
+    return UserModel.fromJson(doc.data(), fallbackId: doc.id);
   }
 
   Future<List<UserModel>> findByField({
@@ -78,6 +101,7 @@ class FirestoreService {
   Future<void> setBanned(String id, {required bool banned}) async {
     await _usersRef.doc(id).update({
       'status': banned ? UserStatus.banned : UserStatus.active,
+      'isBanned': banned,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

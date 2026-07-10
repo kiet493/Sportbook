@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../models/user_model.dart';
+import '../../providers/registration_providers.dart';
 import 'widgets/widgets.dart';
 
-class RegisterPage extends StatefulWidget {
+class RegisterPage extends ConsumerStatefulWidget {
   final VoidCallback onSuccess;
   final VoidCallback onLogin;
 
@@ -13,10 +16,10 @@ class RegisterPage extends StatefulWidget {
   });
 
   @override
-  State<RegisterPage> createState() => _RegisterPageState();
+  ConsumerState<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _RegisterPageState extends State<RegisterPage> {
+class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -35,6 +38,7 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _passwordError;
   String? _confirmPwError;
   String? _agreedError;
+  String? _formError;
 
   int _passwordStrength = 0;
 
@@ -69,6 +73,7 @@ class _RegisterPageState extends State<RegisterPage> {
       _passwordError = null;
       _confirmPwError = null;
       _agreedError = null;
+      _formError = null;
     });
 
     final name = _fullNameController.text.trim();
@@ -120,8 +125,25 @@ class _RegisterPageState extends State<RegisterPage> {
     }
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 1600));
+    final result = await ref
+        .read(registrationProvider.notifier)
+        .submit(
+          fullName: name,
+          email: email,
+          phone: phone,
+          password: password,
+          role: UserRole.user,
+          gender: UserGender.other,
+        );
     if (!mounted) return;
+
+    if (!result.success) {
+      setState(() {
+        _isLoading = false;
+        _applyRegistrationError(result);
+      });
+      return;
+    }
 
     setState(() {
       _isLoading = false;
@@ -131,6 +153,25 @@ class _RegisterPageState extends State<RegisterPage> {
     await Future.delayed(const Duration(milliseconds: 700));
     if (!mounted) return;
     widget.onSuccess();
+  }
+
+  void _applyRegistrationError(RegistrationResult result) {
+    switch (result.fieldError) {
+      case 'fullName':
+        _fullNameError = result.message;
+        return;
+      case 'email':
+        _emailError = result.message;
+        return;
+      case 'phone':
+        _phoneError = result.message;
+        return;
+      case 'password':
+        _passwordError = result.message;
+        return;
+      default:
+        _formError = result.message ?? 'Không thể tạo tài khoản';
+    }
   }
 
   @override
@@ -172,6 +213,7 @@ class _RegisterPageState extends State<RegisterPage> {
               passwordError: _passwordError,
               confirmPwError: _confirmPwError,
               agreedError: _agreedError,
+              formError: _formError,
               showPassword: _showPassword,
               showConfirmPassword: _showConfirmPassword,
               agreed: _agreed,
