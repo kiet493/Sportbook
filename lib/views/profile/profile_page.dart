@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/widgets/bottom_nav.dart';
 import '../../providers/registration_providers.dart';
-import '../../routes/app_router.dart';
 import 'widgets/widgets.dart';
 
 class ProfilePage extends ConsumerWidget {
@@ -40,10 +39,7 @@ class ProfilePage extends ConsumerWidget {
                   await ref.read(loginProvider.notifier).logout();
                   onLogout();
                 },
-                onManageUsersTap: showAdmin
-                    ? () =>
-                          Navigator.of(context).pushNamed(AppRoutes.manageUsers)
-                    : null,
+                onManageUsersTap: showAdmin ? () => onNav('admin') : null,
               ),
             ),
           ],

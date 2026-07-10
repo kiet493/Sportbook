@@ -33,6 +33,53 @@ class FirebaseAuthService {
     );
   }
 
+  Future<CreatedAuthUser> createUserWithoutChangingSession({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    if (Firebase.apps.isEmpty) {
+      throw FirebaseException(
+        plugin: 'firebase_auth',
+        code: 'no-app',
+        message: 'Firebase chưa được khởi tạo',
+      );
+    }
+
+    final secondaryApp = await Firebase.initializeApp(
+      name: 'sportbook_user_creation_${DateTime.now().microsecondsSinceEpoch}',
+      options: Firebase.app().options,
+    );
+    final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
+
+    try {
+      final credential = await secondaryAuth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final user = credential.user;
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'user-create-failed',
+          message: 'Không tạo được tài khoản Firebase Auth',
+        );
+      }
+
+      final trimmedName = displayName.trim();
+      if (trimmedName.isNotEmpty) {
+        await user.updateDisplayName(trimmedName);
+      }
+
+      return CreatedAuthUser(uid: user.uid, email: user.email ?? email);
+    } finally {
+      try {
+        await secondaryAuth.signOut();
+      } finally {
+        await secondaryApp.delete();
+      }
+    }
+  }
+
   Future<UserCredential> signIn({
     required String email,
     required String password,
@@ -56,4 +103,14 @@ class FirebaseAuthService {
     if (user == null) return;
     await user.delete();
   }
+}
+
+class CreatedAuthUser {
+  final String uid;
+  final String email;
+
+  const CreatedAuthUser({
+    required this.uid,
+    required this.email,
+  });
 }

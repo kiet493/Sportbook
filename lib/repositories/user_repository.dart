@@ -29,6 +29,9 @@ class UserRepository {
 
   Future<UserModel?> fetch(String id) => _firestore.fetchUser(id);
 
+  Future<UserModel?> fetchByEmail(String email) =>
+      _firestore.fetchUserByEmail(email);
+
   // ─── Validation rules ──────────────────────────────────────────────────
 
   /// Required-field check. Returns a map of field → error message;

@@ -13,7 +13,9 @@ import 'widgets/user_list_view.dart';
 /// State (search controller, refresh callback) lives here so the
 /// widgets below can stay purely presentational.
 class ManageUsersPage extends ConsumerStatefulWidget {
-  const ManageUsersPage({super.key});
+  final VoidCallback? onBack;
+
+  const ManageUsersPage({super.key, this.onBack});
 
   @override
   ConsumerState<ManageUsersPage> createState() => _ManageUsersPageState();
@@ -59,7 +61,7 @@ class _ManageUsersPageState extends ConsumerState<ManageUsersPage> {
   AppBar _buildAppBar(BuildContext context) => AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        leading: const BackChevronButton(),
+        leading: BackChevronButton(onPressed: widget.onBack),
         title: const Text(
           'Quản lý tài khoản',
           style: TextStyle(

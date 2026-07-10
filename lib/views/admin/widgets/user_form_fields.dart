@@ -12,6 +12,7 @@ class FormTextField extends StatelessWidget {
   final String label;
   final IconData icon;
   final TextInputType? keyboardType;
+  final bool obscureText;
   final String? Function(String?)? validator;
 
   const FormTextField({
@@ -20,6 +21,7 @@ class FormTextField extends StatelessWidget {
     required this.label,
     required this.icon,
     this.keyboardType,
+    this.obscureText = false,
     this.validator,
   });
 
@@ -28,6 +30,7 @@ class FormTextField extends StatelessWidget {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      obscureText: obscureText,
       validator: validator,
       decoration: InputDecoration(
         labelText: label,

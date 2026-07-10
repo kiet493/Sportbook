@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -25,6 +26,7 @@ class UserFormDialog extends ConsumerStatefulWidget {
 class _UserFormDialogState extends ConsumerState<UserFormDialog> {
   late final TextEditingController _name;
   late final TextEditingController _email;
+  late final TextEditingController _password;
   late final TextEditingController _phone;
   late final TextEditingController _address;
   String _role = UserRole.user;
@@ -40,6 +42,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
     final u = widget.user;
     _name = TextEditingController(text: u?.fullName ?? '');
     _email = TextEditingController(text: u?.email ?? '');
+    _password = TextEditingController();
     _phone = TextEditingController(text: u?.phone ?? '');
     _address = TextEditingController(text: u?.address ?? '');
     if (u != null) {
@@ -53,6 +56,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
   void dispose() {
     _name.dispose();
     _email.dispose();
+    _password.dispose();
     _phone.dispose();
     _address.dispose();
     super.dispose();
@@ -88,7 +92,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
           role: _role,
           gender: _gender,
         ).copyWith(address: _address.text.trim(), status: _status);
-        await notifier.create(created);
+        await notifier.create(created, password: _password.text);
       }
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -103,6 +107,10 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
       if (!mounted) return;
       setState(() => _saving = false);
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      messenger.showSnackBar(SnackBar(content: Text(_authErrorMessage(e))));
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -136,8 +144,10 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                   _FormFieldsBlock(
                     name: _name,
                     email: _email,
+                    password: _password,
                     phone: _phone,
                     address: _address,
+                    isEdit: _isEdit,
                   ),
                   const SizedBox(height: 16),
                   _FormSelectsBlock(
@@ -198,14 +208,18 @@ class _DialogHeader extends StatelessWidget {
 class _FormFieldsBlock extends StatelessWidget {
   final TextEditingController name;
   final TextEditingController email;
+  final TextEditingController password;
   final TextEditingController phone;
   final TextEditingController address;
+  final bool isEdit;
 
   const _FormFieldsBlock({
     required this.name,
     required this.email,
+    required this.password,
     required this.phone,
     required this.address,
+    required this.isEdit,
   });
 
   @override
@@ -228,6 +242,16 @@ class _FormFieldsBlock extends StatelessWidget {
           keyboardType: TextInputType.emailAddress,
           validator: _validateEmail,
         ),
+        if (!isEdit) ...[
+          const SizedBox(height: 12),
+          FormTextField(
+            controller: password,
+            label: 'Mật khẩu',
+            icon: Icons.lock_outline,
+            obscureText: true,
+            validator: _validatePassword,
+          ),
+        ],
         const SizedBox(height: 12),
         FormTextField(
           controller: phone,
@@ -323,4 +347,25 @@ String? _validatePhone(String? v) {
   if (v == null || v.trim().isEmpty) return 'Vui lòng nhập số điện thoại';
   if (!_phoneRegex.hasMatch(v.trim())) return 'Số điện thoại không hợp lệ';
   return null;
+}
+
+String? _validatePassword(String? v) {
+  if (v == null || v.isEmpty) return 'Vui lòng nhập mật khẩu';
+  if (v.length < 6) return 'Mật khẩu tối thiểu 6 ký tự';
+  return null;
+}
+
+String _authErrorMessage(FirebaseAuthException e) {
+  switch (e.code) {
+    case 'email-already-in-use':
+      return 'Email đã tồn tại trong Firebase Authentication';
+    case 'invalid-email':
+      return 'Email không hợp lệ';
+    case 'weak-password':
+      return 'Mật khẩu quá yếu';
+    case 'operation-not-allowed':
+      return 'Firebase Auth chưa bật Email/Password';
+    default:
+      return e.message ?? 'Không thể tạo tài khoản Auth (${e.code})';
+  }
 }

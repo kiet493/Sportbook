@@ -13,7 +13,7 @@ class UserRole {
 
   /// Human-readable label used in dropdowns / chips.
   static String label(String role) {
-    switch (role) {
+    switch (role.trim().toLowerCase()) {
       case admin:
         return 'Quản trị viên';
       case staff:
@@ -154,9 +154,9 @@ class UserModel {
   );
 
   bool get isEmpty => id.isEmpty;
-  bool get isAdmin => role == UserRole.admin;
-  bool get isStaff => role == UserRole.staff;
-  bool get isBanned => status == UserStatus.banned;
+  bool get isAdmin => role.trim().toLowerCase() == UserRole.admin;
+  bool get isStaff => role.trim().toLowerCase() == UserRole.staff;
+  bool get isBanned => status.trim().toLowerCase() == UserStatus.banned;
 
   UserModel copyWith({
     String? id,
