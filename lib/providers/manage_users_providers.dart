@@ -15,17 +15,12 @@ final userRepositoryProvider = Provider<UserRepository>((ref) {
   return UserRepository(firestoreService: ref.watch(firestoreServiceProvider));
 });
 
-
 class UserListFilter {
   final String search;
   final String? role;
   final String? status;
 
-  const UserListFilter({
-    this.search = '',
-    this.role,
-    this.status,
-  });
+  const UserListFilter({this.search = '', this.role, this.status});
 
   UserListFilter copyWith({
     String? search,
@@ -54,14 +49,14 @@ class UserListFilterNotifier extends Notifier<UserListFilter> {
 
 final userListFilterProvider =
     NotifierProvider<UserListFilterNotifier, UserListFilter>(
-  UserListFilterNotifier.new,
-);
+      UserListFilterNotifier.new,
+    );
 
 /// The AsyncNotifier driving the manage-users CRUD screen.
 final manageUsersViewModelProvider =
     AsyncNotifierProvider<ManageUsersViewModel, List<ManageUsersItem>>(
-  ManageUsersViewModel.new,
-);
+      ManageUsersViewModel.new,
+    );
 
 /// View-friendly projection of a [UserModel] plus its UI flags.
 /// Kept in the provider file so the view only depends on the

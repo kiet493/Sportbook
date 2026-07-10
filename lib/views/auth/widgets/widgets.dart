@@ -1,5 +1,6 @@
 export 'auth_divider.dart';
 export 'auth_footer_link.dart';
+export 'auth_form_error.dart';
 export 'auth_header.dart';
 export 'auth_intro.dart';
 export 'auth_remember_forgot_row.dart';

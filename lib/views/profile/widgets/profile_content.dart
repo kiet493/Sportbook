@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/user_model.dart';
 import 'profile_logout_button.dart';
 import 'profile_menu_button.dart';
 import 'profile_user_card.dart';
 
 class ProfileContent extends StatelessWidget {
+  final UserModel? user;
   final VoidCallback onHistoryTap;
   final VoidCallback onFavoritesTap;
   final VoidCallback onLogout;
@@ -12,6 +14,7 @@ class ProfileContent extends StatelessWidget {
 
   const ProfileContent({
     super.key,
+    required this.user,
     required this.onHistoryTap,
     required this.onFavoritesTap,
     required this.onLogout,
@@ -26,7 +29,7 @@ class ProfileContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const ProfileUserCard(),
+          ProfileUserCard(user: user),
           const SizedBox(height: 16),
           ProfileMenuButton(
             label: "L\u1ecbch s\u1eed \u0111\u1eb7t s\u00e2n",

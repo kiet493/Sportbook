@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'auth_divider.dart';
 import 'auth_footer_link.dart';
+import 'auth_form_error.dart';
 import 'auth_intro.dart';
 import 'auth_remember_forgot_row.dart';
 import 'auth_social_button.dart';
@@ -14,6 +15,7 @@ class LoginForm extends StatelessWidget {
   final TextEditingController passwordController;
   final String? emailError;
   final String? passwordError;
+  final String? formError;
   final bool showPassword;
   final bool rememberMe;
   final bool isLoading;
@@ -29,6 +31,7 @@ class LoginForm extends StatelessWidget {
     required this.passwordController,
     this.emailError,
     this.passwordError,
+    this.formError,
     required this.showPassword,
     required this.rememberMe,
     required this.isLoading,
@@ -83,6 +86,9 @@ class LoginForm extends StatelessWidget {
             onForgotPassword: () {},
           ),
           const SizedBox(height: 24),
+          AuthFormError(message: formError),
+          if (formError != null && formError!.isNotEmpty)
+            const SizedBox(height: 12),
           AuthSubmitButton(
             label: "Đăng nhập",
             successLabel: "Đăng nhập thành công!",

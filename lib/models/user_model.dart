@@ -139,19 +139,19 @@ class UserModel {
   /// Empty/invalid placeholder used as the AsyncNotifier seed state
   /// so the first frame does not show "loading" before the stream fires.
   factory UserModel.empty() => UserModel(
-        id: '',
-        fullName: '',
-        email: '',
-        phone: '',
-        role: UserRole.user,
-        gender: UserGender.other,
-        status: UserStatus.active,
-        avatarUrl: '',
-        address: '',
-        dateOfBirth: null,
-        createdAt: DateTime.fromMillisecondsSinceEpoch(0),
-        updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
-      );
+    id: '',
+    fullName: '',
+    email: '',
+    phone: '',
+    role: UserRole.user,
+    gender: UserGender.other,
+    status: UserStatus.active,
+    avatarUrl: '',
+    address: '',
+    dateOfBirth: null,
+    createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+  );
 
   bool get isEmpty => id.isEmpty;
   bool get isAdmin => role == UserRole.admin;
@@ -183,8 +183,7 @@ class UserModel {
       status: status ?? this.status,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       address: address ?? this.address,
-      dateOfBirth:
-          clearDateOfBirth ? null : (dateOfBirth ?? this.dateOfBirth),
+      dateOfBirth: clearDateOfBirth ? null : (dateOfBirth ?? this.dateOfBirth),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -196,15 +195,19 @@ class UserModel {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'firebaseUID': id,
       'fullName': fullName,
       'email': email,
       'phone': phone,
+      'phoneNumber': phone,
       'role': role,
       'gender': gender,
       'status': status,
+      'isBanned': isBanned,
       'avatarUrl': avatarUrl,
       'address': address,
       'dateOfBirth': dateOfBirth?.toIso8601String(),
+      'dob': dateOfBirth?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -228,32 +231,37 @@ class UserModel {
         final dyn = raw as dynamic;
         final date = dyn.toDate();
         if (date is DateTime) return date;
-      } catch (_) {/* ignore – not a Timestamp */}
+      } catch (_) {
+        /* ignore – not a Timestamp */
+      }
       return null;
     }
 
-    final id = (json['id'] as String?) ??
-        (json['uid'] as String?) ??
+    final id =
+        _readString(json['firebaseUID']) ??
+        _readString(json['uid']) ??
+        _readString(json['id']) ??
         fallbackId ??
         '';
     final now = DateTime.now();
     return UserModel(
       id: id,
-      fullName: (json['fullName'] as String?) ??
-          (json['displayName'] as String?) ??
+      fullName:
+          _readString(json['fullName']) ??
+          _readString(json['displayName']) ??
           '',
-      email: (json['email'] as String?) ?? '',
-      phone: (json['phone'] as String?) ??
-          (json['phoneNumber'] as String?) ??
-          '',
-      role: (json['role'] as String?) ?? UserRole.user,
-      gender: (json['gender'] as String?) ?? UserGender.other,
-      status: (json['status'] as String?) ?? UserStatus.active,
-      avatarUrl: (json['avatarUrl'] as String?) ??
-          (json['photoUrl'] as String?) ??
-          '',
-      address: (json['address'] as String?) ?? '',
-      dateOfBirth: parseDate(json['dateOfBirth']),
+      email: _readString(json['email']) ?? '',
+      phone:
+          _readString(json['phone']) ?? _readString(json['phoneNumber']) ?? '',
+      role: _normaliseRole(json['role']),
+      gender: _normaliseGender(json['gender']),
+      status: _isTruthy(json['isBanned'])
+          ? UserStatus.banned
+          : _normaliseStatus(json['status']),
+      avatarUrl:
+          _readString(json['avatarUrl']) ?? _readString(json['photoUrl']) ?? '',
+      address: _readString(json['address']) ?? '',
+      dateOfBirth: parseDate(json['dateOfBirth'] ?? json['dob']),
       createdAt: parseDate(json['createdAt']) ?? now,
       updatedAt: parseDate(json['updatedAt']) ?? now,
     );
@@ -265,4 +273,51 @@ class UserModel {
 
   @override
   int get hashCode => id.hashCode;
+}
+
+String? _readString(Object? raw) {
+  if (raw is! String) return null;
+  final value = raw.trim();
+  return value.isEmpty ? null : value;
+}
+
+bool _isTruthy(Object? raw) {
+  if (raw is bool) return raw;
+  if (raw is String) return raw.trim().toLowerCase() == 'true';
+  return false;
+}
+
+String _normaliseRole(Object? raw) {
+  final value = _readString(raw)?.toLowerCase();
+  return UserRole.all.contains(value) ? value! : UserRole.user;
+}
+
+String _normaliseGender(Object? raw) {
+  switch (_readString(raw)?.toLowerCase()) {
+    case 'male':
+    case 'nam':
+      return UserGender.male;
+    case 'female':
+    case 'nu':
+    case 'nữ':
+      return UserGender.female;
+    case 'other':
+    case 'khac':
+    case 'khác':
+      return UserGender.other;
+    default:
+      return UserGender.other;
+  }
+}
+
+String _normaliseStatus(Object? raw) {
+  switch (_readString(raw)?.toLowerCase()) {
+    case UserStatus.banned:
+    case 'locked':
+    case 'disabled':
+      return UserStatus.banned;
+    case UserStatus.active:
+    default:
+      return UserStatus.active;
+  }
 }

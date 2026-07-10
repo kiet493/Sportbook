@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../providers/registration_providers.dart';
 import 'widgets/widgets.dart';
 
-class LoginPage extends StatefulWidget {
+class LoginPage extends ConsumerStatefulWidget {
   final VoidCallback onSuccess;
   final VoidCallback onRegister;
 
@@ -13,10 +15,10 @@ class LoginPage extends StatefulWidget {
   });
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -27,11 +29,13 @@ class _LoginPageState extends State<LoginPage> {
 
   String? _emailError;
   String? _passwordError;
+  String? _formError;
 
   Future<void> _validateAndSubmit() async {
     setState(() {
       _emailError = null;
       _passwordError = null;
+      _formError = null;
     });
 
     final email = _emailController.text.trim();
@@ -60,8 +64,18 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 1400));
+    final error = await ref
+        .read(loginProvider.notifier)
+        .login(email: email, password: password);
     if (!mounted) return;
+
+    if (error != null) {
+      setState(() {
+        _isLoading = false;
+        _formError = error;
+      });
+      return;
+    }
 
     setState(() {
       _isLoading = false;
@@ -105,6 +119,7 @@ class _LoginPageState extends State<LoginPage> {
               passwordController: _passwordController,
               emailError: _emailError,
               passwordError: _passwordError,
+              formError: _formError,
               showPassword: _showPassword,
               rememberMe: _rememberMe,
               isLoading: _isLoading,

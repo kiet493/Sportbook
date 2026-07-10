@@ -33,13 +33,16 @@ class ProfilePage extends ConsumerWidget {
             const ProfileHeader(),
             Expanded(
               child: ProfileContent(
+                user: session?.user,
                 onHistoryTap: () => onNav('history'),
                 onFavoritesTap: () => onNav('favorites'),
-                onLogout: onLogout,
+                onLogout: () async {
+                  await ref.read(loginProvider.notifier).logout();
+                  onLogout();
+                },
                 onManageUsersTap: showAdmin
-                    ? () => Navigator.of(context).pushNamed(
-                          AppRoutes.manageUsers,
-                        )
+                    ? () =>
+                          Navigator.of(context).pushNamed(AppRoutes.manageUsers)
                     : null,
               ),
             ),
