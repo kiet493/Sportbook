@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/widgets/bottom_nav.dart';
+import '../../providers/registration_providers.dart';
+import '../../routes/app_router.dart';
 import 'widgets/widgets.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends ConsumerWidget {
   final ValueChanged<String> onNav;
   final String activeNav;
   final VoidCallback onLogout;
@@ -16,7 +19,11 @@ class ProfilePage extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(sessionProvider);
+    final showAdmin =
+        session != null && !session.user.isBanned && session.user.isAdmin;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
@@ -29,6 +36,11 @@ class ProfilePage extends StatelessWidget {
                 onHistoryTap: () => onNav('history'),
                 onFavoritesTap: () => onNav('favorites'),
                 onLogout: onLogout,
+                onManageUsersTap: showAdmin
+                    ? () => Navigator.of(context).pushNamed(
+                          AppRoutes.manageUsers,
+                        )
+                    : null,
               ),
             ),
           ],
