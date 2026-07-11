@@ -23,6 +23,7 @@ class LoginForm extends StatelessWidget {
   final VoidCallback onTogglePassword;
   final VoidCallback onToggleRemember;
   final VoidCallback onSubmit;
+  final VoidCallback onForgotPassword;
   final VoidCallback onRegister;
 
   const LoginForm({
@@ -39,6 +40,7 @@ class LoginForm extends StatelessWidget {
     required this.onTogglePassword,
     required this.onToggleRemember,
     required this.onSubmit,
+    required this.onForgotPassword,
     required this.onRegister,
   });
 
@@ -83,7 +85,7 @@ class LoginForm extends StatelessWidget {
           AuthRememberForgotRow(
             rememberMe: rememberMe,
             onToggleRemember: onToggleRemember,
-            onForgotPassword: () {},
+            onForgotPassword: onForgotPassword,
           ),
           const SizedBox(height: 24),
           AuthFormError(message: formError),

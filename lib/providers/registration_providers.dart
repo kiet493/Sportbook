@@ -69,8 +69,6 @@ class RegistrationNotifier extends AsyncNotifier<void> {
     required String email,
     required String phone,
     required String password,
-    required String role,
-    required String gender,
   }) async {
     state = const AsyncLoading();
 
@@ -101,28 +99,37 @@ class RegistrationNotifier extends AsyncNotifier<void> {
         fullName: fullName,
         email: email,
         phone: phone,
-        role: role,
-        gender: gender,
+        // Public registration must never be able to self-assign privileges.
+        role: UserRole.user,
+        gender: UserGender.other,
       );
       final created = await repo.createUser(user);
-      ref.read(sessionProvider.notifier).setUser(created);
+      // Registration returns to the login page, so do not leave a hidden
+      // Firebase session active behind that screen.
+      try {
+        await auth.signOut();
+      } catch (_) {
+        // The account/profile are already valid; login can replace the session.
+      }
+      ref.read(sessionProvider.notifier).clear();
       state = const AsyncData(null);
       return RegistrationResult.success(created);
     } on FirebaseAuthException catch (e) {
+      await _rollbackRegistration(repo, auth, credential);
       state = const AsyncData(null);
       return _registrationErrorFromAuth(e);
     } on UserValidationException catch (e) {
-      await _deleteAuthUserIfCreated(auth, credential);
+      await _rollbackRegistration(repo, auth, credential);
       state = AsyncData(null);
       return RegistrationResult.fieldError(e.code, e.message);
     } on FirebaseException catch (e) {
-      await _deleteAuthUserIfCreated(auth, credential);
+      await _rollbackRegistration(repo, auth, credential);
       state = AsyncError(e, StackTrace.current);
       return RegistrationResult.error(
         e.message ?? 'Firebase gặp lỗi (${e.code})',
       );
     } catch (e) {
-      await _deleteAuthUserIfCreated(auth, credential);
+      await _rollbackRegistration(repo, auth, credential);
       state = AsyncError(e, StackTrace.current);
       return RegistrationResult.error(e.toString());
     }
@@ -194,6 +201,23 @@ class LoginNotifier extends AsyncNotifier<bool> {
     } finally {
       ref.read(sessionProvider.notifier).clear();
       state = const AsyncData(false);
+    }
+  }
+
+  Future<String?> sendPasswordReset(String email) async {
+    final startupError = ref.read(firebaseStartupErrorProvider);
+    if (startupError != null) return startupError;
+    try {
+      await ref.read(firebaseAuthServiceProvider).sendPasswordResetEmail(email);
+      return null;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'invalid-email') return 'Email không hợp lệ';
+      if (e.code == 'too-many-requests') {
+        return 'Bạn thao tác quá nhiều lần, vui lòng thử lại sau';
+      }
+      return e.message ?? 'Không thể gửi email đặt lại mật khẩu';
+    } catch (_) {
+      return 'Không thể gửi email đặt lại mật khẩu';
     }
   }
 }
@@ -345,6 +369,21 @@ Future<void> _deleteAuthUserIfCreated(
   } catch (_) {
     // Best-effort cleanup. The UI still receives the original error.
   }
+}
+
+Future<void> _rollbackRegistration(
+  UserRepository repo,
+  FirebaseAuthService auth,
+  UserCredential? credential,
+) async {
+  final uid = credential?.user?.uid;
+  if (uid == null) return;
+  try {
+    await repo.deleteUser(uid);
+  } catch (_) {
+    // The profile may not have been written yet.
+  }
+  await _deleteAuthUserIfCreated(auth, credential);
 }
 
 String _fallbackPhoneForUid(String uid) {

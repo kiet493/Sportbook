@@ -90,6 +90,9 @@ class FirebaseAuthService {
     );
   }
 
+  Future<void> sendPasswordResetEmail(String email) =>
+      _instance.sendPasswordResetEmail(email: email.trim().toLowerCase());
+
   Future<void> updateDisplayName(String fullName) async {
     final user = currentUser;
     if (user == null) return;
@@ -109,8 +112,5 @@ class CreatedAuthUser {
   final String uid;
   final String email;
 
-  const CreatedAuthUser({
-    required this.uid,
-    required this.email,
-  });
+  const CreatedAuthUser({required this.uid, required this.email});
 }
