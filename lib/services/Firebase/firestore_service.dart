@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 import '../../models/user_model.dart';
 
@@ -116,6 +115,23 @@ class FirestoreService {
       'createdAt': now,
       'updatedAt': now,
     });
+
+    // Do not report a successful registration until the profile can be read
+    // back with the same identity and required data.
+    final saved = await _usersRef.doc(user.id).get();
+    final data = saved.data();
+    if (!saved.exists ||
+        data == null ||
+        data['firebaseUID'] != user.id ||
+        data['email'] != user.email ||
+        data['fullName'] != user.fullName ||
+        data['phone'] != user.phone) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'profile-write-incomplete',
+        message: 'Hồ sơ người dùng chưa được lưu đầy đủ trên Firestore.',
+      );
+    }
   }
 
   Future<void> updateUser(UserModel user) async {

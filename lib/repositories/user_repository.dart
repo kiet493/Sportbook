@@ -1,3 +1,4 @@
+import '../core/utils/auth_validators.dart';
 import '../models/user_model.dart';
 import '../services/Firebase/firestore_service.dart';
 
@@ -19,7 +20,7 @@ class UserValidationException implements Exception {
 /// unit-tested without touching Firestore or any Riverpod state.
 class UserRepository {
   UserRepository({required FirestoreService firestoreService})
-      : _firestore = firestoreService;
+    : _firestore = firestoreService;
 
   final FirestoreService _firestore;
 
@@ -39,25 +40,16 @@ class UserRepository {
   Map<String, String> validateRequired(UserModel user) {
     final errors = <String, String>{};
 
-    if (user.fullName.trim().isEmpty) {
-      errors['fullName'] = 'Vui lòng nhập họ tên';
-    } else if (user.fullName.trim().length < 2) {
-      errors['fullName'] = 'Họ tên quá ngắn';
-    }
+    final fullNameError = AuthValidators.fullName(user.fullName);
+    if (fullNameError != null) errors['fullName'] = fullNameError;
 
     final email = user.email.trim();
-    if (email.isEmpty) {
-      errors['email'] = 'Vui lòng nhập email';
-    } else if (!_emailRegex.hasMatch(email)) {
-      errors['email'] = 'Email không hợp lệ';
-    }
+    final emailError = AuthValidators.email(email);
+    if (emailError != null) errors['email'] = emailError;
 
     final phone = user.phone.trim();
-    if (phone.isEmpty) {
-      errors['phone'] = 'Vui lòng nhập số điện thoại';
-    } else if (!_phoneRegex.hasMatch(phone)) {
-      errors['phone'] = 'Số điện thoại không hợp lệ';
-    }
+    final phoneError = AuthValidators.phone(phone);
+    if (phoneError != null) errors['phone'] = phoneError;
 
     if (!UserRole.all.contains(user.role)) {
       errors['role'] = 'Vai trò không hợp lệ';
@@ -87,10 +79,7 @@ class UserRepository {
 
   /// Enforces email + phone uniqueness. `excludeId` lets the update
   /// path skip the row that's currently being edited.
-  Future<void> ensureUnique(
-    UserModel user, {
-    String? excludeId,
-  }) async {
+  Future<void> ensureUnique(UserModel user, {String? excludeId}) async {
     final email = user.email.trim().toLowerCase();
     final phone = user.phone.trim();
 
@@ -166,21 +155,17 @@ class UserRepository {
     final now = DateTime.now();
     return user.copyWith(
       email: user.email.trim().toLowerCase(),
-      phone: user.phone.trim(),
+      phone: AuthValidators.normalisePhone(user.phone),
       fullName: user.fullName.trim(),
       address: user.address.trim(),
       role: UserRole.all.contains(user.role) ? user.role : UserRole.user,
-      gender:
-          UserGender.all.contains(user.gender) ? user.gender : UserGender.other,
-      status:
-          UserStatus.all.contains(user.status) ? user.status : UserStatus.active,
+      gender: UserGender.all.contains(user.gender)
+          ? user.gender
+          : UserGender.other,
+      status: UserStatus.all.contains(user.status)
+          ? user.status
+          : UserStatus.active,
       updatedAt: now,
     );
   }
-
-  // Conservative regex set; the client only checks format — the server
-  // is still authoritative for uniqueness and validity.
-  static final RegExp _emailRegex =
-      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-  static final RegExp _phoneRegex = RegExp(r'^[0-9+\-\s()]{8,15}$');
 }

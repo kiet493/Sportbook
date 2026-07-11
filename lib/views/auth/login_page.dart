@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/utils/auth_validators.dart';
 import '../../providers/registration_providers.dart';
 import 'widgets/widgets.dart';
 
@@ -38,25 +39,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       _formError = null;
     });
 
-    final email = _emailController.text.trim();
+    final email = AuthValidators.normaliseEmail(_emailController.text);
     final password = _passwordController.text;
-    var hasError = false;
-
-    if (email.isEmpty) {
-      _emailError = "Vui lòng nhập email";
-      hasError = true;
-    } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(email)) {
-      _emailError = "Email không hợp lệ";
-      hasError = true;
-    }
-
-    if (password.isEmpty) {
-      _passwordError = "Vui lòng nhập mật khẩu";
-      hasError = true;
-    } else if (password.length < 6) {
-      _passwordError = "Mật khẩu tối thiểu 6 ký tự";
-      hasError = true;
-    }
+    _emailError = AuthValidators.email(email);
+    _passwordError = AuthValidators.loginPassword(password);
+    final hasError = _emailError != null || _passwordError != null;
 
     if (hasError) {
       setState(() {});
@@ -85,6 +72,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     await Future.delayed(const Duration(milliseconds: 700));
     if (!mounted) return;
     widget.onSuccess();
+  }
+
+  Future<void> _forgotPassword() async {
+    final email = AuthValidators.normaliseEmail(_emailController.text);
+    final validationError = AuthValidators.email(email);
+    if (validationError != null) {
+      setState(() => _emailError = validationError);
+      return;
+    }
+
+    final error = await ref
+        .read(loginProvider.notifier)
+        .sendPasswordReset(email);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(error ?? 'Đã gửi liên kết đặt lại mật khẩu đến $email'),
+        backgroundColor: error == null ? const Color(0xFF16A34A) : null,
+      ),
+    );
   }
 
   @override
@@ -131,6 +138,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 setState(() => _rememberMe = !_rememberMe);
               },
               onSubmit: _validateAndSubmit,
+              onForgotPassword: _forgotPassword,
               onRegister: widget.onRegister,
             ),
           ],

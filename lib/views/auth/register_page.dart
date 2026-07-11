@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/user_model.dart';
+import '../../core/utils/auth_validators.dart';
 import '../../providers/registration_providers.dart';
 import 'widgets/widgets.dart';
 
@@ -76,43 +76,25 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       _formError = null;
     });
 
-    final name = _fullNameController.text.trim();
-    final email = _emailController.text.trim();
-    final phone = _phoneController.text.trim();
+    final name = _fullNameController.text.trim().replaceAll(
+      RegExp(r'\s+'),
+      ' ',
+    );
+    final email = AuthValidators.normaliseEmail(_emailController.text);
+    final phone = AuthValidators.normalisePhone(_phoneController.text);
     final password = _passwordController.text;
     final confirmPw = _confirmPwController.text;
-    var hasError = false;
-
-    if (name.isEmpty) {
-      _fullNameError = "Vui lòng nhập họ tên";
-      hasError = true;
-    }
-
-    if (email.isEmpty) {
-      _emailError = "Vui lòng nhập email";
-      hasError = true;
-    } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(email)) {
-      _emailError = "Email không hợp lệ";
-      hasError = true;
-    }
-
-    if (phone.isEmpty) {
-      _phoneError = "Vui lòng nhập số điện thoại";
-      hasError = true;
-    }
-
-    if (password.isEmpty) {
-      _passwordError = "Mật khẩu tối thiểu 6 ký tự";
-      hasError = true;
-    } else if (password.length < 6) {
-      _passwordError = "Mật khẩu tối thiểu 6 ký tự";
-      hasError = true;
-    }
-
-    if (password != confirmPw) {
-      _confirmPwError = "Mật khẩu không khớp";
-      hasError = true;
-    }
+    _fullNameError = AuthValidators.fullName(name);
+    _emailError = AuthValidators.email(email);
+    _phoneError = AuthValidators.phone(phone);
+    _passwordError = AuthValidators.registrationPassword(password);
+    _confirmPwError = AuthValidators.confirmPassword(password, confirmPw);
+    var hasError =
+        _fullNameError != null ||
+        _emailError != null ||
+        _phoneError != null ||
+        _passwordError != null ||
+        _confirmPwError != null;
 
     if (!_agreed) {
       _agreedError = "Vui lòng đồng ý điều khoản";
@@ -127,14 +109,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     setState(() => _isLoading = true);
     final result = await ref
         .read(registrationProvider.notifier)
-        .submit(
-          fullName: name,
-          email: email,
-          phone: phone,
-          password: password,
-          role: UserRole.user,
-          gender: UserGender.other,
-        );
+        .submit(fullName: name, email: email, phone: phone, password: password);
     if (!mounted) return;
 
     if (!result.success) {
