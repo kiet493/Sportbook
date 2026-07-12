@@ -11,8 +11,11 @@ void main() {
     );
     final json = user.toJson();
 
+    expect(json['_id'], 'firebase-uid');
     expect(json['id'], 'firebase-uid');
+    expect(json['firebaseId'], 'firebase-uid');
     expect(json['firebaseUID'], 'firebase-uid');
+    expect(json['name'], 'Nguyễn Văn An');
     expect(json['fullName'], 'Nguyễn Văn An');
     expect(json['email'], 'an@example.com');
     expect(json['phone'], '0901234567');

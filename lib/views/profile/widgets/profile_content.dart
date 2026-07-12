@@ -11,6 +11,7 @@ class ProfileContent extends StatelessWidget {
   final VoidCallback onFavoritesTap;
   final VoidCallback onLogout;
   final VoidCallback? onManageUsersTap;
+  final VoidCallback? onManageVenuesTap;
 
   const ProfileContent({
     super.key,
@@ -19,6 +20,7 @@ class ProfileContent extends StatelessWidget {
     required this.onFavoritesTap,
     required this.onLogout,
     this.onManageUsersTap,
+    this.onManageVenuesTap,
   });
 
   @override
@@ -45,6 +47,13 @@ class ProfileContent extends StatelessWidget {
             ProfileMenuButton(
               label: "Qu\u1ea3n l\u00fd t\u00e0i kho\u1ea3n",
               onTap: onManageUsersTap!,
+            ),
+          ],
+          if (onManageVenuesTap != null) ...[
+            const SizedBox(height: 12),
+            ProfileMenuButton(
+              label: "Qu\u1ea3n l\u00fd s\u00e2n",
+              onTap: onManageVenuesTap!,
             ),
           ],
           const SizedBox(height: 24),

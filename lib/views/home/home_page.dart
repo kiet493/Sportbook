@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/widgets/bottom_nav.dart';
 import '../../models/venue.dart';
+import '../../providers/registration_providers.dart';
 import 'widgets/widgets.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends ConsumerStatefulWidget {
   final Function(Venue) onVenueTap;
   final Function(String) onNav;
   final String activeNav;
@@ -17,10 +19,10 @@ class HomePage extends StatefulWidget {
   });
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends ConsumerState<HomePage> {
   String _activeSport = 'Bóng đá';
   String _activeFilter = 'Tất cả';
   final Set<int> _favorites = {2};
@@ -37,6 +39,11 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(sessionProvider)?.user;
+    final fullName = user?.fullName.trim();
+    final address = user?.address.trim();
+    final avatarUrl = user?.avatarUrl.trim();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       body: SafeArea(
@@ -45,10 +52,12 @@ class _HomePageState extends State<HomePage> {
           children: [
             HomeHeader(
               greeting: 'Chào buổi sáng,',
-              name: 'Minh Tuấn 👋',
-              location: 'Quận 7, TP.HCM',
-              avatarUrl:
-                  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&auto=format',
+              name:
+                  '${(fullName == null || fullName.isEmpty) ? 'Bạn' : fullName} 👋',
+              location: (address == null || address.isEmpty)
+                  ? 'Chưa cập nhật địa chỉ'
+                  : address,
+              avatarUrl: avatarUrl ?? '',
             ),
             Expanded(
               child: SingleChildScrollView(

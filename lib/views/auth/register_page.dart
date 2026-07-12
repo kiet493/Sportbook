@@ -57,7 +57,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       return;
     }
 
-    if (password.length >= 8) strength++;
+    if (password.length >= 6) strength++;
     if (password.contains(RegExp(r'[A-Z]'))) strength++;
     if (password.contains(RegExp(r'[0-9]'))) strength++;
     if (password.contains(RegExp(r'[^A-Za-z0-9]'))) strength++;

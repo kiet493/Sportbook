@@ -22,6 +22,10 @@ class ProfilePage extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     final showAdmin =
         session != null && !session.user.isBanned && session.user.isAdmin;
+    final showManagerTools =
+        session != null &&
+        !session.user.isBanned &&
+        (session.user.isAdmin || session.user.isStaff);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -40,6 +44,9 @@ class ProfilePage extends ConsumerWidget {
                   onLogout();
                 },
                 onManageUsersTap: showAdmin ? () => onNav('admin') : null,
+                onManageVenuesTap: showManagerTools
+                    ? () => onNav('manage-venues')
+                    : null,
               ),
             ),
           ],

@@ -28,11 +28,7 @@ class HomeHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _GreetingColumn(
-            greeting: greeting,
-            name: name,
-            location: location,
-          ),
+          _GreetingColumn(greeting: greeting, name: name, location: location),
           Row(
             children: [
               _NotificationBell(hasNotification: hasNotification),
@@ -83,11 +79,7 @@ class _GreetingColumn extends StatelessWidget {
         const SizedBox(height: 2),
         Row(
           children: [
-            const Icon(
-              Icons.location_on,
-              size: 12,
-              color: AppColors.primary,
-            ),
+            const Icon(Icons.location_on, size: 12, color: AppColors.primary),
             const SizedBox(width: 2),
             Text(
               location,
@@ -158,6 +150,7 @@ class _UserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasImage = avatarUrl.trim().isNotEmpty;
     return Container(
       width: 40,
       height: 40,
@@ -165,16 +158,16 @@ class _UserAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: AppColors.primary, width: 2),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6),
         ],
-        image: DecorationImage(
-          image: NetworkImage(avatarUrl),
-          fit: BoxFit.cover,
-        ),
+        color: hasImage ? null : AppColors.primarySoft,
+        image: hasImage
+            ? DecorationImage(image: NetworkImage(avatarUrl), fit: BoxFit.cover)
+            : null,
       ),
+      child: hasImage
+          ? null
+          : const Icon(Icons.person, color: AppColors.primary, size: 22),
     );
   }
 }
