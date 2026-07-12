@@ -38,19 +38,9 @@ class FirestoreService {
 
   Future<UserModel?> fetchUser(String id) async {
     final snap = await _usersRef.doc(id).get();
-    final directUser = snap.exists
+    return snap.exists
         ? UserModel.fromJson(snap.data()!, fallbackId: snap.id)
         : null;
-
-    try {
-      return await _fetchBestByFirebaseUid(id, fallback: directUser);
-    } on FirebaseException catch (error) {
-      if (directUser != null && error.code == 'permission-denied') {
-        return directUser;
-      }
-
-      rethrow;
-    }
   }
 
   Future<UserModel?> fetchUserByEmail(String email) async {
@@ -62,22 +52,6 @@ class FirestoreService {
         .toList(growable: false);
 
     return _pickBestProfile(users);
-  }
-
-  Future<UserModel?> _fetchBestByFirebaseUid(
-    String id, {
-    UserModel? fallback,
-  }) async {
-    final snap = await _usersRef.where('firebaseUID', isEqualTo: id).get();
-    final users = snap.docs
-        .map((doc) => UserModel.fromJson(doc.data(), fallbackId: doc.id))
-        .toList(growable: false);
-
-    if (fallback != null && users.every((user) => user.id != fallback.id)) {
-      return _pickBestProfile([...users, fallback]);
-    }
-
-    return _pickBestProfile(users) ?? fallback;
   }
 
   UserModel? _pickBestProfile(List<UserModel> users) {
@@ -108,7 +82,10 @@ class FirestoreService {
         .toList(growable: false);
   }
 
-  Future<void> createUser(UserModel user) async {
+  Future<void> createUser(
+    UserModel user, {
+    bool verifyProfileWrite = true,
+  }) async {
     final now = FieldValue.serverTimestamp();
     await _usersRef.doc(user.id).set({
       ...user.toJson(),
@@ -116,16 +93,18 @@ class FirestoreService {
       'updatedAt': now,
     });
 
+    if (!verifyProfileWrite) return;
+
     // Do not report a successful registration until the profile can be read
     // back with the same identity and required data.
     final saved = await _usersRef.doc(user.id).get();
     final data = saved.data();
     if (!saved.exists ||
         data == null ||
-        data['firebaseUID'] != user.id ||
+        (data['firebaseId'] ?? data['firebaseUID']) != user.id ||
         data['email'] != user.email ||
-        data['fullName'] != user.fullName ||
-        data['phone'] != user.phone) {
+        (data['name'] ?? data['fullName']) != user.fullName ||
+        (data['phoneNumber'] ?? data['phone']) != user.phone) {
       throw FirebaseException(
         plugin: 'cloud_firestore',
         code: 'profile-write-incomplete',
@@ -141,6 +120,15 @@ class FirestoreService {
     };
     data.remove('createdAt');
     await _usersRef.doc(user.id).update(data);
+  }
+
+  Future<void> saveAuthenticatedUserProfile(UserModel user) async {
+    final data = <String, dynamic>{
+      ...user.toJson(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    data.remove('createdAt');
+    await _usersRef.doc(user.id).set(data, SetOptions(merge: true));
   }
 
   Future<void> deleteUser(String id) async {

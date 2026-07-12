@@ -11,12 +11,6 @@ final firebaseAuthServiceProvider = Provider<FirebaseAuthService>((ref) {
   return FirebaseAuthService();
 });
 
-/// Holds the currently authenticated user.
-///
-/// `null` ⇒ not signed in. The [AppRouter] redirects to the login
-/// screen whenever this resolves to `null`. A banned user is *still*
-/// represented as a non-null value — the router refuses to render the
-/// home shell and shows a "banned" placeholder instead.
 class SessionUser {
   final UserModel user;
   const SessionUser(this.user);
@@ -34,8 +28,6 @@ final sessionProvider = NotifierProvider<SessionNotifier, SessionUser?>(
   SessionNotifier.new,
 );
 
-/// Result of a registration attempt. Either success (with a [UserModel])
-/// or a user-facing error message keyed by field.
 class RegistrationResult {
   final bool success;
   final UserModel? user;
@@ -57,9 +49,6 @@ class RegistrationResult {
       user = null;
 }
 
-/// Drives the registration form. Keeps a single in-flight submit
-/// accessible to the view via [AsyncValue] without conflating it with
-/// the global list state used by the admin module.
 class RegistrationNotifier extends AsyncNotifier<void> {
   @override
   void build() {}
@@ -99,17 +88,19 @@ class RegistrationNotifier extends AsyncNotifier<void> {
         fullName: fullName,
         email: email,
         phone: phone,
-        // Public registration must never be able to self-assign privileges.
         role: UserRole.user,
         gender: UserGender.other,
       );
-      final created = await repo.createUser(user);
-      // Registration returns to the login page, so do not leave a hidden
-      // Firebase session active behind that screen.
+      final created = await repo.createUser(
+        user,
+        ensureUnique: false,
+        verifyProfileWrite: false,
+      );
+
       try {
         await auth.signOut();
       } catch (_) {
-        // The account/profile are already valid; login can replace the session.
+        // The profile has already been written; login can replace the session.
       }
       ref.read(sessionProvider.notifier).clear();
       state = const AsyncData(null);
@@ -120,17 +111,15 @@ class RegistrationNotifier extends AsyncNotifier<void> {
       return _registrationErrorFromAuth(e);
     } on UserValidationException catch (e) {
       await _rollbackRegistration(repo, auth, credential);
-      state = AsyncData(null);
+      state = const AsyncData(null);
       return RegistrationResult.fieldError(e.code, e.message);
     } on FirebaseException catch (e) {
       await _rollbackRegistration(repo, auth, credential);
       state = AsyncError(e, StackTrace.current);
-      return RegistrationResult.error(
-        e.message ?? 'Firebase gặp lỗi (${e.code})',
-      );
-    } catch (e) {
+      return RegistrationResult.error(_firestoreMessage(e));
+    } catch (e, st) {
       await _rollbackRegistration(repo, auth, credential);
-      state = AsyncError(e, StackTrace.current);
+      state = AsyncError(e, st);
       return RegistrationResult.error(e.toString());
     }
   }
@@ -165,12 +154,17 @@ class LoginNotifier extends AsyncNotifier<bool> {
         return 'Không tìm thấy phiên đăng nhập Firebase';
       }
 
-      final repo = ref.read(userRepositoryProvider);
       final profile = await _ensureProfileForSignedInUser(
-        repo: repo,
+        repo: ref.read(userRepositoryProvider),
         firebaseUser: firebaseUser,
         fallbackEmail: email,
       );
+
+      if (profile.id != firebaseUser.uid) {
+        await auth.signOut();
+        state = const AsyncData(false);
+        return 'Hồ sơ người dùng không khớp Firebase UID';
+      }
 
       if (profile.isBanned) {
         await auth.signOut();
@@ -184,11 +178,11 @@ class LoginNotifier extends AsyncNotifier<bool> {
     } on FirebaseAuthException catch (e) {
       state = const AsyncData(false);
       return _loginMessageFromAuth(e);
-    } on FirebaseException catch (e) {
-      state = AsyncError(e, StackTrace.current);
+    } on FirebaseException catch (e, st) {
+      state = AsyncError(e, st);
       return _firestoreMessage(e);
-    } catch (e) {
-      state = AsyncError(e, StackTrace.current);
+    } catch (e, st) {
+      state = AsyncError(e, st);
       return 'Đăng nhập thất bại, vui lòng thử lại';
     }
   }
@@ -231,40 +225,12 @@ Future<UserModel> _ensureProfileForSignedInUser({
   required User firebaseUser,
   required String fallbackEmail,
 }) async {
-  final email = (firebaseUser.email ?? fallbackEmail).trim().toLowerCase();
-  final candidates = <UserModel>[];
-  var permissionDenied = false;
+  final existing = await repo.fetch(firebaseUser.uid);
+  if (existing != null) {
+    if (existing.id == firebaseUser.uid) return existing;
 
-  try {
-    final byUid = await repo.fetch(firebaseUser.uid);
-    if (byUid != null) candidates.add(byUid);
-  } on FirebaseException catch (e) {
-    permissionDenied = e.code == 'permission-denied';
-    if (e.code != 'permission-denied') rethrow;
-  }
-
-  try {
-    if (email.isNotEmpty) {
-      final byEmail = await repo.fetchByEmail(email);
-      if (byEmail != null) candidates.add(byEmail);
-    }
-  } on FirebaseException catch (e) {
-    permissionDenied = permissionDenied || e.code == 'permission-denied';
-    if (e.code != 'permission-denied') rethrow;
-  }
-
-  final existing = _pickBestSignedInProfile(candidates);
-  if (existing != null &&
-      (!permissionDenied || existing.isAdmin || existing.isStaff)) {
-    return existing;
-  }
-
-  if (permissionDenied) {
-    throw FirebaseException(
-      plugin: 'cloud_firestore',
-      code: 'permission-denied',
-      message: 'Firestore chưa cấp quyền đọc users cho tài khoản này.',
-    );
+    final corrected = existing.copyWith(id: firebaseUser.uid);
+    return repo.saveAuthenticatedUserProfile(corrected);
   }
 
   final generatedProfile = _profileFromFirebaseUser(
@@ -272,30 +238,18 @@ Future<UserModel> _ensureProfileForSignedInUser({
     fallbackEmail: fallbackEmail,
   );
 
-  return repo.createUser(generatedProfile);
-}
-
-UserModel? _pickBestSignedInProfile(List<UserModel> users) {
-  if (users.isEmpty) return null;
-
-  for (final user in users) {
-    if (user.isAdmin && !user.isBanned) return user;
-  }
-  for (final user in users) {
-    if (user.isStaff && !user.isBanned) return user;
-  }
-  for (final user in users) {
-    if (!user.isBanned) return user;
-  }
-
-  return users.first;
+  return repo.createUser(
+    generatedProfile,
+    ensureUnique: false,
+    verifyProfileWrite: false,
+  );
 }
 
 UserModel _profileFromFirebaseUser({
   required User firebaseUser,
   required String fallbackEmail,
 }) {
-  final email = firebaseUser.email ?? fallbackEmail.trim().toLowerCase();
+  final email = (firebaseUser.email ?? fallbackEmail).trim().toLowerCase();
   final displayName = firebaseUser.displayName?.trim();
 
   return UserModel.newUser(
@@ -391,5 +345,6 @@ String _fallbackPhoneForUid(String uid) {
     0,
     (value, codeUnit) => (value * 31 + codeUnit) & 0x7fffffff,
   );
-  return hash.toString().padLeft(10, '0').substring(0, 10);
+  final suffix = (hash % 10000000).toString().padLeft(7, '0');
+  return '090$suffix';
 }

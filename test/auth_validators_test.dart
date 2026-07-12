@@ -15,18 +15,16 @@ void main() {
       expect(AuthValidators.fullName('Nguyễn Văn An'), isNull);
       expect(AuthValidators.email('an@example.com'), isNull);
       expect(AuthValidators.phone('0901234567'), isNull);
-      expect(AuthValidators.registrationPassword('Sport@123'), isNull);
+      expect(AuthValidators.registrationPassword('123456'), isNull);
+      expect(AuthValidators.registrationPassword('password'), isNull);
     });
 
-    test('rejects malformed or weak registration data', () {
+    test('rejects malformed registration data', () {
       expect(AuthValidators.fullName('1'), isNotNull);
       expect(AuthValidators.email('not-an-email'), isNotNull);
       expect(AuthValidators.phone('12345'), isNotNull);
-      expect(AuthValidators.registrationPassword('password'), isNotNull);
-      expect(
-        AuthValidators.confirmPassword('Sport@123', 'Sport@124'),
-        isNotNull,
-      );
+      expect(AuthValidators.registrationPassword('12345'), isNotNull);
+      expect(AuthValidators.confirmPassword('123456', '123457'), isNotNull);
     });
   });
 }

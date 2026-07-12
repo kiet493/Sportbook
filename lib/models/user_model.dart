@@ -194,8 +194,11 @@ class UserModel {
   /// round-trippable even when read back by the SDK.
   Map<String, dynamic> toJson() {
     return {
+      '_id': id,
       'id': id,
+      'firebaseId': id,
       'firebaseUID': id,
+      'name': fullName,
       'fullName': fullName,
       'email': email,
       'phone': phone,
@@ -238,7 +241,9 @@ class UserModel {
     }
 
     final id =
+        _readString(json['firebaseId']) ??
         _readString(json['firebaseUID']) ??
+        _readString(json['_id']) ??
         _readString(json['uid']) ??
         _readString(json['id']) ??
         fallbackId ??
@@ -247,6 +252,7 @@ class UserModel {
     return UserModel(
       id: id,
       fullName:
+          _readString(json['name']) ??
           _readString(json['fullName']) ??
           _readString(json['displayName']) ??
           '',

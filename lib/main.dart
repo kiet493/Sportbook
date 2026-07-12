@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'models/venue.dart';
+import 'models/court_booking.dart';
 import 'models/user_model.dart';
 import 'firebase_options.dart';
 import 'providers/firebase_providers.dart';
 import 'providers/registration_providers.dart';
 import 'routes/app_router.dart';
 import 'views/admin/manage_users_page.dart';
+import 'views/admin/manage_venues_page.dart';
 import 'views/onboarding/onboarding_page.dart';
 import 'views/auth/login_page.dart';
 import 'views/auth/register_page.dart';
@@ -89,6 +91,7 @@ class _AppControllerState extends ConsumerState<AppController> {
 
   late Venue _selectedVenue;
   late BookingInfo _selectedBooking;
+  CourtBooking? _lastCreatedBooking;
 
   @override
   void initState() {
@@ -211,6 +214,12 @@ class _AppControllerState extends ConsumerState<AppController> {
             child: ManageUsersPage(onBack: () => _goScreen("home")),
           );
           break;
+        case "manage-venues":
+          activeWidget = RoleGuard(
+            requiredRole: UserRole.staff,
+            child: ManageVenuesPage(onBack: () => _goScreen("profile")),
+          );
+          break;
         case "detail":
           activeWidget = FieldDetailPage(
             venue: _selectedVenue,
@@ -224,7 +233,10 @@ class _AppControllerState extends ConsumerState<AppController> {
           activeWidget = BookingPage(
             venue: _selectedVenue,
             onBack: () => _goScreen("detail"),
-            onConfirm: _goSuccess,
+            onConfirm: (booking) {
+              _lastCreatedBooking = booking;
+              _goSuccess();
+            },
           );
           break;
         case "success":
@@ -233,7 +245,17 @@ class _AppControllerState extends ConsumerState<AppController> {
             onHome: () => _goScreen("home"),
             onViewBooking: () {
               setState(() {
-                _selectedBooking = MOCK_BOOKINGS[0];
+                _selectedBooking = _lastCreatedBooking == null
+                    ? MOCK_BOOKINGS[0]
+                    : BookingInfo(
+                        id: _lastCreatedBooking!.id,
+                        venue: _selectedVenue,
+                        date: _lastCreatedBooking!.dateKey,
+                        time: _lastCreatedBooking!.timeRange,
+                        status: _lastCreatedBooking!.status,
+                        amount: "${_lastCreatedBooking!.totalPrice}đ",
+                        court: _lastCreatedBooking!.courtName,
+                      );
                 _screen = "booking-detail";
               });
             },

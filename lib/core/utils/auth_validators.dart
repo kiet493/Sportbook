@@ -46,14 +46,8 @@ class AuthValidators {
 
   static String? registrationPassword(String value) {
     if (value.isEmpty) return 'Vui lòng nhập mật khẩu';
-    if (value.length < 8) return 'Mật khẩu phải có ít nhất 8 ký tự';
+    if (value.length < 6) return 'Mật khẩu phải có ít nhất 6 ký tự';
     if (value.length > 128) return 'Mật khẩu không được vượt quá 128 ký tự';
-    if (!RegExp(r'[a-z]').hasMatch(value)) return 'Cần ít nhất 1 chữ thường';
-    if (!RegExp(r'[A-Z]').hasMatch(value)) return 'Cần ít nhất 1 chữ hoa';
-    if (!RegExp(r'\d').hasMatch(value)) return 'Cần ít nhất 1 chữ số';
-    if (!RegExp(r'[^A-Za-z0-9]').hasMatch(value)) {
-      return 'Cần ít nhất 1 ký tự đặc biệt';
-    }
     return null;
   }
 

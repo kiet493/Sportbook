@@ -111,11 +111,20 @@ class UserRepository {
   // ─── CRUD ──────────────────────────────────────────────────────────────
 
   /// Validates, applies defaults, and creates the user.
-  Future<UserModel> createUser(UserModel user) async {
+  Future<UserModel> createUser(
+    UserModel user, {
+    bool ensureUnique = true,
+    bool verifyProfileWrite = true,
+  }) async {
     final normalised = _applyDefaults(user);
     ensureValid(normalised);
-    await ensureUnique(normalised);
-    await _firestore.createUser(normalised);
+    if (ensureUnique) {
+      await this.ensureUnique(normalised);
+    }
+    await _firestore.createUser(
+      normalised,
+      verifyProfileWrite: verifyProfileWrite,
+    );
     return normalised;
   }
 
@@ -127,6 +136,13 @@ class UserRepository {
     ensureValid(normalised);
     await ensureUnique(normalised, excludeId: normalised.id);
     await _firestore.updateUser(normalised);
+    return normalised;
+  }
+
+  Future<UserModel> saveAuthenticatedUserProfile(UserModel user) async {
+    final normalised = _applyDefaults(user);
+    ensureValid(normalised);
+    await _firestore.saveAuthenticatedUserProfile(normalised);
     return normalised;
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_model.dart';
 import '../providers/registration_providers.dart';
 import '../views/admin/manage_users_page.dart';
+import '../views/admin/manage_venues_page.dart';
 import '../views/admin/user_detail_page.dart';
 
 /// Named route catalogue for the new (Riverpod-powered) screens.
@@ -14,6 +15,7 @@ class AppRoutes {
   AppRoutes._();
 
   static const String manageUsers = 'admin/manage-users';
+  static const String manageVenues = 'admin/manage-venues';
   static const String userDetail = 'admin/user-detail';
 }
 
@@ -34,6 +36,14 @@ class AppRouter {
           builder: (_) => const RoleGuard(
             requiredRole: UserRole.admin,
             child: ManageUsersPage(),
+          ),
+        );
+      case AppRoutes.manageVenues:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const RoleGuard(
+            requiredRole: UserRole.staff,
+            child: ManageVenuesPage(),
           ),
         );
       case AppRoutes.userDetail:
@@ -109,9 +119,7 @@ class _LoadingScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
 
@@ -156,8 +164,8 @@ class _ForbiddenScaffold extends StatelessWidget {
 }
 
 Route<dynamic> _errorRoute(String message) => MaterialPageRoute(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('Lỗi')),
-        body: Center(child: Text(message)),
-      ),
-    );
+  builder: (_) => Scaffold(
+    appBar: AppBar(title: const Text('Lỗi')),
+    body: Center(child: Text(message)),
+  ),
+);
