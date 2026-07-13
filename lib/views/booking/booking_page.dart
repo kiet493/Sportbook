@@ -128,7 +128,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final venueId = widget.venue.id.toString();
+    final venueId = widget.venue.firestoreId;
     final courtsAsync = ref.watch(venueCourtsProvider(venueId));
     final bookingsAsync = ref.watch(
       venueBookingsProvider(

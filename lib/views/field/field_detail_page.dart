@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../models/venue.dart';
+import '../../providers/booking_providers.dart';
 import 'widgets/widgets.dart';
 
-class FieldDetailPage extends StatefulWidget {
+class FieldDetailPage extends ConsumerStatefulWidget {
   final Venue venue;
   final VoidCallback onBack;
   final VoidCallback onBook;
+  final ValueChanged<Venue> onVenueTap;
   final Function(String) onNav;
   final String activeNav;
 
@@ -14,15 +18,16 @@ class FieldDetailPage extends StatefulWidget {
     required this.venue,
     required this.onBack,
     required this.onBook,
+    required this.onVenueTap,
     required this.onNav,
     required this.activeNav,
   });
 
   @override
-  State<FieldDetailPage> createState() => _FieldDetailPageState();
+  ConsumerState<FieldDetailPage> createState() => _FieldDetailPageState();
 }
 
-class _FieldDetailPageState extends State<FieldDetailPage> {
+class _FieldDetailPageState extends ConsumerState<FieldDetailPage> {
   bool _isFav = false;
   String _selectedDate = "Hôm nay";
   String? _selectedSlot;
@@ -30,6 +35,14 @@ class _FieldDetailPageState extends State<FieldDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final similarVenues = ref
+            .watch(publicVenuesProvider)
+            .valueOrNull
+            ?.where((v) => v.firestoreId != widget.venue.firestoreId)
+            .take(3)
+            .toList(growable: false) ??
+        const <Venue>[];
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: Stack(
@@ -77,10 +90,11 @@ class _FieldDetailPageState extends State<FieldDetailPage> {
                           onViewAll: () {},
                         ),
                         const SizedBox(height: 20),
-                        FieldSimilarVenues(
-                          venues: VENUES.where((v) => v.id != widget.venue.id).take(3).toList(),
-                          onVenueTap: (_) => widget.onBook(),
-                        ),
+                        if (similarVenues.isNotEmpty)
+                          FieldSimilarVenues(
+                            venues: similarVenues,
+                            onVenueTap: widget.onVenueTap,
+                          ),
                         const SizedBox(height: 100),
                       ],
                     ),

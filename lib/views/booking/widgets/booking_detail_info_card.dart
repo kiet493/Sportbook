@@ -5,7 +5,7 @@ import '../../../core/widgets/info_row.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../models/venue.dart';
 
-/// Section listing booking metadata: id, court, date, time, sport, amount.
+/// Section listing booking metadata: id, court, date, time, court type, amount.
 class BookingDetailInfoCard extends StatelessWidget {
   final String bookingId;
   final String court;
@@ -63,7 +63,7 @@ class BookingDetailInfoCard extends StatelessWidget {
           InfoRow(label: 'Sân', value: court),
           InfoRow(label: 'Ngày', value: date),
           InfoRow(label: 'Giờ', value: time),
-          InfoRow(label: 'Môn thể thao', value: sport),
+          InfoRow(label: 'Loại sân', value: sport),
           InfoRow(
             label: 'Số tiền',
             value: amount,

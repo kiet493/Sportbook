@@ -63,13 +63,28 @@ class BookingFirestoreService {
   Stream<List<SportCourt>> watchCourts(String venueId) {
     return _courtsRef
         .where('complexId', isEqualTo: venueId)
-        .orderBy('sortOrder')
         .snapshots()
-        .map(
-          (snap) => snap.docs
+        .map((snap) {
+          final courts = snap.docs
               .map((doc) => SportCourt.fromJson(doc.data(), fallbackId: doc.id))
-              .toList(growable: false),
-        );
+              .toList();
+          courts.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+          return courts;
+        });
+  }
+
+  Stream<List<SportCourt>> watchAllCourts() {
+    return _courtsRef.snapshots().map((snap) {
+      final courts = snap.docs
+          .map((doc) => SportCourt.fromJson(doc.data(), fallbackId: doc.id))
+          .toList();
+      courts.sort((a, b) {
+        final venueCompare = a.venueId.compareTo(b.venueId);
+        if (venueCompare != 0) return venueCompare;
+        return a.sortOrder.compareTo(b.sortOrder);
+      });
+      return courts;
+    });
   }
 
   Stream<List<CourtBooking>> watchBookings({
