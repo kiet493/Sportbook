@@ -89,14 +89,13 @@ class _AppControllerState extends ConsumerState<AppController> {
   String _screen =
       "home"; // home, search, history, favorites, profile, detail, booking, success, booking-detail
 
-  late Venue _selectedVenue;
+  Venue? _selectedVenue;
   late BookingInfo _selectedBooking;
   CourtBooking? _lastCreatedBooking;
 
   @override
   void initState() {
     super.initState();
-    _selectedVenue = VENUES[0];
     _selectedBooking = MOCK_BOOKINGS[0];
   }
 
@@ -132,6 +131,7 @@ class _AppControllerState extends ConsumerState<AppController> {
   }
 
   void _goBooking() {
+    if (_selectedVenue == null) return;
     setState(() {
       _screen = "booking";
     });
@@ -221,45 +221,67 @@ class _AppControllerState extends ConsumerState<AppController> {
           );
           break;
         case "detail":
-          activeWidget = FieldDetailPage(
-            venue: _selectedVenue,
-            onBack: () => _goScreen("home"),
-            onBook: _goBooking,
-            onNav: _goScreen,
-            activeNav: "home",
-          );
+          final venue = _selectedVenue;
+          activeWidget = venue == null
+              ? HomePage(
+                  onVenueTap: _goVenue,
+                  onNav: _goScreen,
+                  activeNav: "home",
+                )
+              : FieldDetailPage(
+                  venue: venue,
+                  onBack: () => _goScreen("home"),
+                  onBook: _goBooking,
+                  onVenueTap: _goVenue,
+                  onNav: _goScreen,
+                  activeNav: "home",
+                );
           break;
         case "booking":
-          activeWidget = BookingPage(
-            venue: _selectedVenue,
-            onBack: () => _goScreen("detail"),
-            onConfirm: (booking) {
-              _lastCreatedBooking = booking;
-              _goSuccess();
-            },
-          );
+          final venue = _selectedVenue;
+          activeWidget = venue == null
+              ? HomePage(
+                  onVenueTap: _goVenue,
+                  onNav: _goScreen,
+                  activeNav: "home",
+                )
+              : BookingPage(
+                  venue: venue,
+                  onBack: () => _goScreen("detail"),
+                  onConfirm: (booking) {
+                    _lastCreatedBooking = booking;
+                    _goSuccess();
+                  },
+                );
           break;
         case "success":
-          activeWidget = BookingSuccessPage(
-            venue: _selectedVenue,
-            onHome: () => _goScreen("home"),
-            onViewBooking: () {
-              setState(() {
-                _selectedBooking = _lastCreatedBooking == null
-                    ? MOCK_BOOKINGS[0]
-                    : BookingInfo(
-                        id: _lastCreatedBooking!.id,
-                        venue: _selectedVenue,
-                        date: _lastCreatedBooking!.dateKey,
-                        time: _lastCreatedBooking!.timeRange,
-                        status: _lastCreatedBooking!.status,
-                        amount: "${_lastCreatedBooking!.totalPrice}đ",
-                        court: _lastCreatedBooking!.courtName,
-                      );
-                _screen = "booking-detail";
-              });
-            },
-          );
+          final venue = _selectedVenue;
+          activeWidget = venue == null
+              ? HomePage(
+                  onVenueTap: _goVenue,
+                  onNav: _goScreen,
+                  activeNav: "home",
+                )
+              : BookingSuccessPage(
+                  venue: venue,
+                  onHome: () => _goScreen("home"),
+                  onViewBooking: () {
+                    setState(() {
+                      _selectedBooking = _lastCreatedBooking == null
+                          ? MOCK_BOOKINGS[0]
+                          : BookingInfo(
+                              id: _lastCreatedBooking!.id,
+                              venue: venue,
+                              date: _lastCreatedBooking!.dateKey,
+                              time: _lastCreatedBooking!.timeRange,
+                              status: _lastCreatedBooking!.status,
+                              amount: "${_lastCreatedBooking!.totalPrice}đ",
+                              court: _lastCreatedBooking!.courtName,
+                            );
+                      _screen = "booking-detail";
+                    });
+                  },
+                );
           break;
         default:
           activeWidget = HomePage(

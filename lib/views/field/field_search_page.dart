@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../models/venue.dart';
+import '../../providers/booking_providers.dart';
 import '../../core/widgets/bottom_nav.dart';
 import 'widgets/widgets.dart';
 
-class FieldSearchPage extends StatefulWidget {
+class FieldSearchPage extends ConsumerStatefulWidget {
   final VoidCallback onBack;
   final Function(Venue) onVenueTap;
   final Function(String) onNav;
@@ -18,10 +21,10 @@ class FieldSearchPage extends StatefulWidget {
   });
 
   @override
-  State<FieldSearchPage> createState() => _FieldSearchPageState();
+  ConsumerState<FieldSearchPage> createState() => _FieldSearchPageState();
 }
 
-class _FieldSearchPageState extends State<FieldSearchPage> {
+class _FieldSearchPageState extends ConsumerState<FieldSearchPage> {
   final _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   String _query = "";
@@ -30,7 +33,7 @@ class _FieldSearchPageState extends State<FieldSearchPage> {
   String _selectedSport = "Tất cả";
   final List<String> _recentSearches = List.from(RECENT_SEARCHES);
 
-  final _sports = ["Tất cả", ...SPORTS_CATEGORIES.map((s) => s.name)];
+  final _sports = ["Tất cả", ...BADMINTON_SPORT_FILTERS];
   final _sorts = ["Gần nhất", "Đánh giá cao", "Giá thấp nhất", "Phổ biến nhất"];
 
   @override
@@ -46,8 +49,8 @@ class _FieldSearchPageState extends State<FieldSearchPage> {
     super.dispose();
   }
 
-  List<Venue> _getFilteredResults() {
-    return VENUES.where((v) {
+  List<Venue> _getFilteredResults(List<Venue> venues) {
+    return venues.where((v) {
       final matchesQuery = _query.isEmpty ||
           v.name.toLowerCase().contains(_query.toLowerCase()) ||
           v.sport.any((s) => s.toLowerCase().contains(_query.toLowerCase()));
@@ -59,7 +62,7 @@ class _FieldSearchPageState extends State<FieldSearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final results = _getFilteredResults();
+    final venuesAsync = ref.watch(publicVenuesProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -91,23 +94,40 @@ class _FieldSearchPageState extends State<FieldSearchPage> {
                 onApply: () => setState(() => _showFilter = false),
               ),
             Expanded(
-              child: _query.isEmpty
-                  ? FieldSearchEmptyState(
-                      recentSearches: _recentSearches,
-                      popularSearches: POPULAR_SEARCHES,
-                      onRecentTap: (s) {
-                        _searchController.text = s;
-                        setState(() => _query = s);
-                      },
-                      onPopularTap: (s) {
-                        _searchController.text = s;
-                        setState(() => _query = s);
-                      },
-                      onClearRecent: () => setState(() => _recentSearches.clear()),
-                    )
-                  : results.isEmpty
-                      ? const FieldSearchEmptyResults()
-                      : _buildResultsList(results),
+              child: venuesAsync.when(
+                data: (venues) {
+                  final results = _getFilteredResults(venues);
+                  return _query.isEmpty
+                      ? FieldSearchEmptyState(
+                          recentSearches: _recentSearches,
+                          popularSearches: POPULAR_SEARCHES,
+                          onRecentTap: (s) {
+                            _searchController.text = s;
+                            setState(() => _query = s);
+                          },
+                          onPopularTap: (s) {
+                            _searchController.text = s;
+                            setState(() => _query = s);
+                          },
+                          onClearRecent: () =>
+                              setState(() => _recentSearches.clear()),
+                        )
+                      : results.isEmpty
+                          ? const FieldSearchEmptyResults()
+                          : _buildResultsList(results);
+                },
+                error: (error, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'Không tải được dữ liệu sân: $error',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
+              ),
             ),
           ],
         ),

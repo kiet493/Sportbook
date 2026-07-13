@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class Venue {
   final int id;
+  final String firestoreId;
   final String name;
   final List<String> sport;
   final String distance;
@@ -18,6 +19,7 @@ class Venue {
 
   Venue({
     required this.id,
+    String? firestoreId,
     required this.name,
     required this.sport,
     required this.distance,
@@ -31,7 +33,7 @@ class Venue {
     required this.images,
     required this.address,
     required this.description,
-  });
+  }) : firestoreId = firestoreId ?? id.toString();
 }
 
 class SportsCategory {
@@ -177,68 +179,10 @@ class OnboardingFeature {
 final List<Venue> VENUES = [
   Venue(
     id: 1,
-    name: "SVĐ Arena Quận 7",
-    sport: ["Bóng đá", "5v5"],
-    distance: "1.2 km",
-    rating: 4.9,
-    reviews: 312,
-    hours: "06:00 – 22:00",
-    price: "180.000đ/h",
-    priceNum: 180000,
-    available: true,
-    image: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=600&h=380&fit=crop&auto=format",
-    images: [
-      "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&h=500&fit=crop&auto=format",
-      "https://images.unsplash.com/photo-1459865264687-595d652de67e?w=800&h=500&fit=crop&auto=format",
-      "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=800&h=500&fit=crop&auto=format",
-    ],
-    address: "268 Nguyễn Văn Linh, Quận 7, TP.HCM",
-    description: "Sân bóng đá 5v5 tiêu chuẩn quốc tế với mặt cỏ nhân tạo thế hệ mới. Hệ thống đèn LED chiếu sáng đảm bảo chất lượng thi đấu tốt nhất cả ngày lẫn đêm.",
-  ),
-  Venue(
-    id: 2,
-    name: "Tennis Club Thảo Điền",
-    sport: ["Tennis"],
-    distance: "2.8 km",
-    rating: 4.8,
-    reviews: 189,
-    hours: "07:00 – 21:00",
-    price: "250.000đ/h",
-    priceNum: 250000,
-    available: true,
-    image: "https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?w=600&h=380&fit=crop&auto=format",
-    images: [
-      "https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?w=800&h=500&fit=crop&auto=format",
-      "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800&h=500&fit=crop&auto=format",
-    ],
-    address: "12 Xuân Thủy, Quận 2, TP.HCM",
-    description: "CLB tennis cao cấp với 6 sân tiêu chuẩn, mặt sân đa dạng gồm hard court và clay court. Phù hợp cho cả người mới và vận động viên chuyên nghiệp.",
-  ),
-  Venue(
-    id: 3,
-    name: "Aqua Sport Center",
-    sport: ["Bơi lội"],
-    distance: "3.4 km",
-    rating: 4.9,
-    reviews: 421,
-    hours: "05:30 – 21:00",
-    price: "90.000đ/h",
-    priceNum: 90000,
-    available: false,
-    image: "https://images.unsplash.com/photo-1530549387789-4c1017266635?w=600&h=380&fit=crop&auto=format",
-    images: [
-      "https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800&h=500&fit=crop&auto=format",
-      "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?w=800&h=500&fit=crop&auto=format",
-    ],
-    address: "45 Đinh Tiên Hoàng, Bình Thạnh, TP.HCM",
-    description: "Hồ bơi Olympic 50m với hệ thống lọc nước hiện đại. Có làn bơi riêng cho các cấp độ từ người mới đến chuyên nghiệp.",
-  ),
-  Venue(
-    id: 4,
     name: "Galaxy Badminton Club",
     sport: ["Cầu lông"],
     distance: "0.8 km",
-    rating: 4.7,
+    rating: 4.8,
     reviews: 245,
     hours: "06:00 – 23:00",
     price: "120.000đ/h",
@@ -249,25 +193,80 @@ final List<Venue> VENUES = [
       "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=800&h=500&fit=crop&auto=format",
     ],
     address: "99 Hoàng Văn Thụ, Phú Nhuận, TP.HCM",
-    description: "Sân cầu lông trong nhà với 12 sân chơi, sàn gỗ chuyên dụng và hệ thống điều hòa mát lạnh. Cho thuê vợt và bán cầu tại chỗ.",
+    description: "Cụm sân cầu lông trong nhà với sàn gỗ, điều hòa và khu nghỉ chờ. Có cho thuê vợt và bán cầu tại chỗ.",
+  ),
+  Venue(
+    id: 2,
+    name: "Phu Nhuan Badminton Center",
+    sport: ["Cầu lông"],
+    distance: "1.5 km",
+    rating: 4.9,
+    reviews: 186,
+    hours: "05:30 – 22:30",
+    price: "150.000đ/h",
+    priceNum: 150000,
+    available: true,
+    image: "https://images.unsplash.com/photo-1613918108466-292b78a8ef95?w=600&h=380&fit=crop&auto=format",
+    images: [
+      "https://images.unsplash.com/photo-1613918108466-292b78a8ef95?w=800&h=500&fit=crop&auto=format",
+    ],
+    address: "21 Nguyễn Văn Trỗi, Phú Nhuận, TP.HCM",
+    description: "Trung tâm cầu lông gần sân bay, có thảm chuẩn, đèn LED và bãi xe rộng.",
+  ),
+  Venue(
+    id: 3,
+    name: "Q7 Badminton House",
+    sport: ["Cầu lông"],
+    distance: "2.4 km",
+    rating: 4.7,
+    reviews: 132,
+    hours: "06:00 – 22:00",
+    price: "130.000đ/h",
+    priceNum: 130000,
+    available: true,
+    image: "https://images.unsplash.com/photo-1600679472829-3044539ce8ed?w=600&h=380&fit=crop&auto=format",
+    images: [
+      "https://images.unsplash.com/photo-1600679472829-3044539ce8ed?w=800&h=500&fit=crop&auto=format",
+    ],
+    address: "268 Nguyễn Văn Linh, Quận 7, TP.HCM",
+    description: "Cụm sân cầu lông Quận 7, phù hợp đặt sân theo nhóm sau giờ làm.",
+  ),
+  Venue(
+    id: 4,
+    name: "Thu Duc Shuttle Hub",
+    sport: ["Cầu lông"],
+    distance: "3.2 km",
+    rating: 4.6,
+    reviews: 98,
+    hours: "06:00 – 22:30",
+    price: "140.000đ/h",
+    priceNum: 140000,
+    available: true,
+    image: "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=600&h=380&fit=crop&auto=format",
+    images: [
+      "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=800&h=500&fit=crop&auto=format",
+    ],
+    address: "12 Xuân Thủy, TP Thủ Đức, TP.HCM",
+    description: "Sân cầu lông trong nhà cho sinh viên và nhân viên văn phòng, có khu nghỉ chờ và nước uống.",
   ),
 ];
 
-final List<SportsCategory> SPORTS_CATEGORIES = [
-  SportsCategory(name: "Bóng đá", icon: Icons.flash_on, color: Color(0xFF22C55E), bg: Color(0xFFDCFCE7)),
-  SportsCategory(name: "Cầu lông", icon: Icons.air, color: Color(0xFF3B82F6), bg: Color(0xFFDBEAFE)),
-  SportsCategory(name: "Pickleball", icon: Icons.offline_bolt, color: Color(0xFFF97316), bg: Color(0xFFFFEDD5)),
-  SportsCategory(name: "Tennis", icon: Icons.emoji_events, color: Color(0xFFA855F7), bg: Color(0xFFF3E8FF)),
-  SportsCategory(name: "Bóng rổ", icon: Icons.sports_basketball, color: Color(0xFFEF4444), bg: Color(0xFFFEE2E2)),
-  SportsCategory(name: "Bóng chuyền", icon: Icons.sports_volleyball, color: Color(0xFF06B6D4), bg: Color(0xFFCFFAFE)),
-  SportsCategory(name: "Gym", icon: Icons.fitness_center, color: Color(0xFF8B5CF6), bg: Color(0xFFEDE9FE)),
-  SportsCategory(name: "Bơi lội", icon: Icons.pool, color: Color(0xFF0EA5E9), bg: Color(0xFFE0F2FE)),
+final List<SportsCategory> BADMINTON_FEATURES = [
+  SportsCategory(name: "Sân trong nhà", icon: Icons.home_work, color: Color(0xFF2563EB), bg: Color(0xFFDBEAFE)),
+  SportsCategory(name: "Thảm chuẩn", icon: Icons.grid_view, color: Color(0xFF22C55E), bg: Color(0xFFDCFCE7)),
+  SportsCategory(name: "Điều hòa", icon: Icons.ac_unit, color: Color(0xFF06B6D4), bg: Color(0xFFCFFAFE)),
+  SportsCategory(name: "Đèn LED", icon: Icons.lightbulb, color: Color(0xFFF97316), bg: Color(0xFFFFEDD5)),
+  SportsCategory(name: "Thuê vợt", icon: Icons.shopping_bag, color: Color(0xFFA855F7), bg: Color(0xFFF3E8FF)),
+  SportsCategory(name: "Bãi xe", icon: Icons.local_parking, color: Color(0xFF64748B), bg: Color(0xFFE2E8F0)),
+  SportsCategory(name: "Nước uống", icon: Icons.local_drink, color: Color(0xFFEF4444), bg: Color(0xFFFEE2E2)),
 ];
 
+final List<String> BADMINTON_SPORT_FILTERS = ["Cầu lông"];
+
 final List<BannerInfo> BANNERS = [
-  BannerInfo(id: 1, title: "Giải Cuối Tuần", sub: "500+ đội thi đấu", cta: "Đăng ký", image: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&h=400&fit=crop&auto=format", color: Color(0xFF2563EB)),
-  BannerInfo(id: 2, title: "Ưu đãi Tennis", sub: "Giảm 30% tháng 7", cta: "Xem ngay", image: "https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?w=800&h=400&fit=crop&auto=format", color: Color(0xFFF97316)),
-  BannerInfo(id: 3, title: "Sân mới Q.9", sub: "Chuẩn quốc tế", cta: "Khám phá", image: "https://images.unsplash.com/photo-1526232761682-d26e03ac148e?w=800&h=400&fit=crop&auto=format", color: Color(0xFF22C55E)),
+  BannerInfo(id: 1, title: "Đặt sân cầu lông", sub: "Lịch trống theo thời gian thực", cta: "Đặt ngay", image: "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=800&h=400&fit=crop&auto=format", color: Color(0xFF2563EB)),
+  BannerInfo(id: 2, title: "Khung giờ vàng", sub: "Giá tốt cho buổi sáng", cta: "Xem ngay", image: "https://images.unsplash.com/photo-1613918108466-292b78a8ef95?w=800&h=400&fit=crop&auto=format", color: Color(0xFFF97316)),
+  BannerInfo(id: 3, title: "CLB mới mở", sub: "Sân trong nhà, đèn LED", cta: "Khám phá", image: "https://images.unsplash.com/photo-1600679472829-3044539ce8ed?w=800&h=400&fit=crop&auto=format", color: Color(0xFF22C55E)),
 ];
 
 final List<String> QUICK_FILTERS = ["Tất cả", "Gần nhất", "Giá thấp", "Đánh giá cao", "Mở ngay"];
@@ -312,14 +311,14 @@ final List<PaymentMethod> PAYMENT_METHODS = [
 ];
 
 final List<BookingInfo> MOCK_BOOKINGS = [
-  BookingInfo(id: "BK001", venue: VENUES[0], date: "Thứ 7, 12 Jul 2025", time: "19:00 – 20:00", status: "upcoming", amount: "180.000đ", court: "Sân A"),
-  BookingInfo(id: "BK002", venue: VENUES[1], date: "Thứ 3, 8 Jul 2025", time: "08:00 – 09:00", status: "completed", amount: "250.000đ", court: "Sân 2"),
-  BookingInfo(id: "BK003", venue: VENUES[3], date: "Thứ 2, 7 Jul 2025", time: "17:00 – 18:00", status: "completed", amount: "120.000đ", court: "Sân 5"),
-  BookingInfo(id: "BK004", venue: VENUES[2], date: "Chủ nhật, 6 Jul 2025", time: "06:00 – 07:00", status: "cancelled", amount: "90.000đ", court: "Làn 3"),
+  BookingInfo(id: "BK001", venue: VENUES[0], date: "Thứ 7, 12 Jul 2025", time: "19:00 – 20:00", status: "upcoming", amount: "120.000đ", court: "Sân cầu lông 1"),
+  BookingInfo(id: "BK002", venue: VENUES[1], date: "Thứ 3, 8 Jul 2025", time: "08:00 – 09:00", status: "completed", amount: "150.000đ", court: "Sân VIP 1"),
+  BookingInfo(id: "BK003", venue: VENUES[3], date: "Thứ 2, 7 Jul 2025", time: "17:00 – 18:00", status: "completed", amount: "140.000đ", court: "Sân 2"),
+  BookingInfo(id: "BK004", venue: VENUES[2], date: "Chủ nhật, 6 Jul 2025", time: "06:00 – 07:00", status: "cancelled", amount: "130.000đ", court: "Sân Q7 A"),
 ];
 
-final List<String> RECENT_SEARCHES = ["Sân bóng đá Quận 7", "Tennis gần đây", "Cầu lông Phú Nhuận"];
-final List<String> POPULAR_SEARCHES = ["Bóng đá 5v5", "Tennis buổi sáng", "Gym 24h", "Cầu lông giá rẻ", "Pickleball mới"];
+final List<String> RECENT_SEARCHES = ["Cầu lông Phú Nhuận", "Sân cầu lông Quận 7", "Cầu lông Thủ Đức"];
+final List<String> POPULAR_SEARCHES = ["Sân trong nhà", "Cầu lông giá rẻ", "Có điều hòa", "Thuê vợt", "Mở cửa tối"];
 
 final List<OnboardingScreenInfo> OB_SCREENS = [
   OnboardingScreenInfo(
@@ -327,7 +326,7 @@ final List<OnboardingScreenInfo> OB_SCREENS = [
     image: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&h=900&fit=crop&auto=format&q=80",
     tag: "SportBook",
     headline: "Book Your\nPerfect Game",
-    sub: "Khám phá và đặt sân bóng đá, cầu lông, tennis, pickleball và hơn 8 môn thể thao chỉ trong vài chạm.",
+    sub: "Khám phá và đặt sân cầu lông trong vài chạm, xem lịch trống, giá sân và thông tin tiện ích rõ ràng.",
     features: [],
     primaryBtn: "Bắt đầu ngay",
     secondaryBtn: "Bỏ qua",

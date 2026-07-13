@@ -4,9 +4,11 @@ import '../../../core/constants/app_colors.dart';
 import '../../../models/venue.dart';
 import 'home_sport_chip.dart';
 
-/// Section header + horizontal scrollable list of sport-category chips.
+/// Section header + horizontal scrollable list of feature chips.
 class HomeSportsSection extends StatelessWidget {
   final List<SportsCategory> categories;
+  final String title;
+  final String actionLabel;
   final String activeSport;
   final ValueChanged<String> onSportSelected;
   final VoidCallback onSeeMore;
@@ -14,6 +16,8 @@ class HomeSportsSection extends StatelessWidget {
   const HomeSportsSection({
     super.key,
     required this.categories,
+    this.title = 'Tiện ích sân',
+    this.actionLabel = 'Xem sân',
     required this.activeSport,
     required this.onSportSelected,
     required this.onSeeMore,
@@ -29,9 +33,9 @@ class HomeSportsSection extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Môn thể thao',
-                style: TextStyle(
+              Text(
+                title,
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textPrimary,
@@ -40,16 +44,16 @@ class HomeSportsSection extends StatelessWidget {
               GestureDetector(
                 onTap: onSeeMore,
                 child: Row(
-                  children: const [
+                  children: [
                     Text(
-                      'Xem thêm',
-                      style: TextStyle(
+                      actionLabel,
+                      style: const TextStyle(
                         fontSize: 12,
                         color: AppColors.primary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    Icon(
+                    const Icon(
                       Icons.chevron_right,
                       size: 14,
                       color: AppColors.primary,

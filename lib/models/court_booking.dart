@@ -70,7 +70,7 @@ class ManagedVenue {
 
   factory ManagedVenue.fromLegacy(Venue venue) {
     return ManagedVenue(
-      id: venue.id.toString(),
+      id: venue.firestoreId,
       name: venue.name,
       sports: venue.sport,
       address: venue.address,
@@ -88,7 +88,7 @@ class ManagedVenue {
   factory ManagedVenue.empty() => const ManagedVenue(
     id: '',
     name: '',
-    sports: ['Bong da'],
+    sports: ['Cầu lông'],
     address: '',
     hours: '06:00 - 22:00',
     pricePerHour: 180000,
