@@ -6,6 +6,7 @@ class BookingScheduleBoard extends StatelessWidget {
   final List<SportCourt> courts;
   final List<CourtBooking> bookings;
   final int durationMinutes;
+  final int minimumStartMinutes;
   final CourtSlotSelection? selection;
   final ValueChanged<CourtSlotSelection> onSelected;
 
@@ -14,6 +15,7 @@ class BookingScheduleBoard extends StatelessWidget {
     required this.courts,
     required this.bookings,
     required this.durationMinutes,
+    required this.minimumStartMinutes,
     required this.selection,
     required this.onSelected,
   });
@@ -58,6 +60,7 @@ class BookingScheduleBoard extends StatelessWidget {
                     slots: slots,
                     bookings: bookings,
                     durationMinutes: durationMinutes,
+                    minimumStartMinutes: minimumStartMinutes,
                     selection: selection,
                     onSelected: onSelected,
                   ),
@@ -161,6 +164,7 @@ class _CourtRow extends StatelessWidget {
   final List<int> slots;
   final List<CourtBooking> bookings;
   final int durationMinutes;
+  final int minimumStartMinutes;
   final CourtSlotSelection? selection;
   final ValueChanged<CourtSlotSelection> onSelected;
 
@@ -169,6 +173,7 @@ class _CourtRow extends StatelessWidget {
     required this.slots,
     required this.bookings,
     required this.durationMinutes,
+    required this.minimumStartMinutes,
     required this.selection,
     required this.onSelected,
   });
@@ -205,6 +210,7 @@ class _CourtRow extends StatelessWidget {
             minute: minute,
             bookings: bookings,
             durationMinutes: durationMinutes,
+            minimumStartMinutes: minimumStartMinutes,
             selected:
                 selection?.court.id == court.id &&
                 selection?.startMinutes == minute,
@@ -221,6 +227,7 @@ class _SlotCell extends StatelessWidget {
   final int minute;
   final List<CourtBooking> bookings;
   final int durationMinutes;
+  final int minimumStartMinutes;
   final bool selected;
   final ValueChanged<CourtSlotSelection> onSelected;
 
@@ -229,6 +236,7 @@ class _SlotCell extends StatelessWidget {
     required this.minute,
     required this.bookings,
     required this.durationMinutes,
+    required this.minimumStartMinutes,
     required this.selected,
     required this.onSelected,
   });
@@ -253,12 +261,15 @@ class _SlotCell extends StatelessWidget {
 
     final canSelect =
         court.active &&
+        minute >= minimumStartMinutes &&
         blocking == null &&
         minute + durationMinutes <= BookingScheduleBoard.endMinute &&
         !_selectionWouldOverlap();
 
     final bgColor = !court.active
         ? const Color(0xFF9CA3AF)
+        : minute < minimumStartMinutes
+        ? const Color(0xFFE5E7EB)
         : blocking != null
         ? CourtSlotStatus.color(blocking.status)
         : selected

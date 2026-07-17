@@ -27,7 +27,7 @@ class BookingDetailActionButtons extends StatelessWidget {
 
     return Column(
       children: [
-        if (isUpcoming) ...[
+        if (isUpcoming && onCancel != null) ...[
           ElevatedButton(
             onPressed: onCancel,
             style: ElevatedButton.styleFrom(
@@ -57,17 +57,20 @@ class BookingDetailActionButtons extends StatelessWidget {
           ),
           const SizedBox(height: 10),
         ],
-        _SecondaryButton(
-          icon: Icons.refresh,
-          label: 'Đặt lại sân này',
-          onPressed: onRebook,
-        ),
-        const SizedBox(height: 10),
-        _SecondaryButton(
-          icon: Icons.chat_bubble_outline,
-          label: 'Liên hệ ban quản lý',
-          onPressed: onContact,
-        ),
+        if (onRebook != null) ...[
+          _SecondaryButton(
+            icon: Icons.refresh,
+            label: 'Đặt lại sân này',
+            onPressed: onRebook,
+          ),
+          const SizedBox(height: 10),
+        ],
+        if (onContact != null)
+          _SecondaryButton(
+            icon: Icons.chat_bubble_outline,
+            label: 'Liên hệ ban quản lý',
+            onPressed: onContact,
+          ),
       ],
     );
   }

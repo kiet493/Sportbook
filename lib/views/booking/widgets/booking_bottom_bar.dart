@@ -34,7 +34,7 @@ class BookingBottomBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                "Tổng thanh toán",
+                "Chi phí sân",
                 style: TextStyle(
                   fontSize: 13,
                   color: Color(0xFF64748B),

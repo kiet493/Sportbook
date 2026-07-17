@@ -47,7 +47,7 @@ class BookingTermsCheckbox extends StatelessWidget {
             const SizedBox(width: 10),
             const Expanded(
               child: Text(
-                "Tôi đồng ý với điều khoản đặt sân và chính sách hoàn tiền của SportBook.",
+                "Tôi đồng ý với điều khoản đặt sân và chính sách hủy lịch của SportBook.",
                 style: TextStyle(
                   fontSize: 13,
                   color: Color(0xFF64748B),

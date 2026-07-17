@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/widgets/back_chevron_button.dart';
+import '../../core/utils/currency_formatter.dart';
 import '../../models/court_booking.dart';
 import '../../models/venue.dart';
 import '../../providers/booking_providers.dart';
@@ -9,12 +10,10 @@ import '../../providers/registration_providers.dart';
 import 'widgets/booking_bottom_bar.dart';
 import 'widgets/booking_counters_card.dart';
 import 'widgets/booking_notes_box.dart';
-import 'widgets/booking_payment_methods.dart';
 import 'widgets/booking_price_breakdown.dart';
 import 'widgets/booking_schedule_board.dart';
 import 'widgets/booking_summary_card.dart';
 import 'widgets/booking_terms_checkbox.dart';
-import 'widgets/booking_voucher_box.dart';
 
 class BookingPage extends ConsumerStatefulWidget {
   final Venue venue;
@@ -36,13 +35,10 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   late DateTime _selectedDate;
   CourtSlotSelection? _selectedSlot;
   int _duration = 1;
-  int _players = 10;
-  String _payMethod = 'momo';
-  String _appliedVoucher = '';
+  int _players = 2;
   bool _agreed = false;
   bool _isLoading = false;
 
-  final _voucherController = TextEditingController();
   final _notesController = TextEditingController();
 
   List<DateTime> get _dates {
@@ -60,23 +56,29 @@ class _BookingPageState extends ConsumerState<BookingPage> {
 
   @override
   void dispose() {
-    _voucherController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
-  int get _subtotal => widget.venue.priceNum * _duration;
-  int get _serviceFee => (_subtotal * 0.05).round();
-  int get _discount =>
-      _appliedVoucher == 'SPORT10' ? (_subtotal * 0.1).round() : 0;
-  int get _finalTotal => _subtotal + _serviceFee - _discount;
+  int get _hourlyPrice {
+    final courtPrice = _selectedSlot?.court.pricePerHour ?? 0;
+    return courtPrice > 0 ? courtPrice : widget.venue.priceNum;
+  }
+
+  int get _finalTotal => _hourlyPrice * _duration;
   int get _durationMinutes => _duration * 60;
   String get _selectedDateKey => dateKey(_selectedDate);
 
-  void _applyVoucher() {
-    setState(() {
-      _appliedVoucher = _voucherController.text.trim().toUpperCase();
-    });
+  int get _maxPlayers {
+    final capacity = _selectedSlot?.court.capacity ?? 4;
+    return capacity < 2 ? 2 : capacity;
+  }
+
+  int get _minimumStartMinutes {
+    final now = DateTime.now();
+    if (dateKey(now) != _selectedDateKey) return 0;
+    final current = now.hour * 60 + now.minute;
+    return ((current ~/ 30) + 1) * 30;
   }
 
   Future<void> _confirmBooking() async {
@@ -106,7 +108,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       totalPrice: _finalTotal,
       participants: _players,
       status: CourtSlotStatus.booked,
-      paymentMethod: _payMethod,
+      paymentMethod: '',
       notes: _notesController.text.trim(),
       createdAt: DateTime.now(),
     );
@@ -143,7 +145,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         elevation: 0.5,
         leading: BackChevronButton(onPressed: widget.onBack),
         title: const Text(
-          'Xac nhan dat san',
+          'Xác nhận đặt sân',
           style: TextStyle(
             color: Color(0xFF0F172A),
             fontSize: 16,
@@ -170,7 +172,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   BookingCountersCard(
                     duration: _duration,
                     players: _players,
-                    priceLabel: widget.venue.price,
+                    priceLabel: '${formatVnd(_hourlyPrice)}đ/h',
+                    maxPlayers: _maxPlayers,
                     onDurationChanged: (value) => setState(() {
                       _duration = value;
                       _selectedSlot = null;
@@ -196,17 +199,23 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                               courts: courts,
                               bookings: bookings,
                               durationMinutes: _durationMinutes,
+                              minimumStartMinutes: _minimumStartMinutes,
                               selection: _selectedSlot,
-                              onSelected: (slot) =>
-                                  setState(() => _selectedSlot = slot),
+                              onSelected: (slot) => setState(() {
+                                _selectedSlot = slot;
+                                final capacity = slot.court.capacity;
+                                if (capacity >= 2 && _players > capacity) {
+                                  _players = capacity;
+                                }
+                              }),
                             ),
                       error: (error, _) => const _ErrorBox(
-                        message: 'Khong tai duoc lich dat san.',
+                        message: 'Không tải được lịch đặt sân.',
                       ),
                       loading: () => const _ScheduleLoading(),
                     ),
                     error: (error, _) => const _ErrorBox(
-                      message: 'Khong tai duoc danh sach san.',
+                      message: 'Không tải được danh sách sân.',
                     ),
                     loading: () => const _ScheduleLoading(),
                   ),
@@ -214,29 +223,15 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     const SizedBox(height: 10),
                     _SelectedSlotBanner(
                       text:
-                          '${_selectedSlot!.court.name} - ${formatMinutes(_selectedSlot!.startMinutes)} den ${formatMinutes(_selectedSlot!.startMinutes + _durationMinutes)}',
+                          '${_selectedSlot!.court.name} - ${formatMinutes(_selectedSlot!.startMinutes)} đến ${formatMinutes(_selectedSlot!.startMinutes + _durationMinutes)}',
                     ),
                   ],
-                  const SizedBox(height: 16),
-                  BookingVoucherBox(
-                    controller: _voucherController,
-                    onApply: _applyVoucher,
-                    discount: _discount,
-                  ),
-                  const SizedBox(height: 16),
-                  BookingPaymentMethods(
-                    methods: PAYMENT_METHODS,
-                    selectedId: _payMethod,
-                    onChanged: (id) => setState(() => _payMethod = id),
-                  ),
                   const SizedBox(height: 16),
                   BookingNotesBox(controller: _notesController),
                   const SizedBox(height: 16),
                   BookingPriceBreakdown(
                     duration: _duration,
-                    total: _subtotal,
-                    serviceFee: _serviceFee,
-                    discount: _discount,
+                    hourlyPrice: _hourlyPrice,
                     finalTotal: _finalTotal,
                   ),
                   const SizedBox(height: 16),
@@ -322,8 +317,8 @@ class _DateStrip extends StatelessWidget {
   }
 
   String _dateLabel(DateTime date, int index) {
-    if (index == 0) return 'Hom nay';
-    if (index == 1) return 'Ngay mai';
+    if (index == 0) return 'Hôm nay';
+    if (index == 1) return 'Ngày mai';
     final day = date.day.toString().padLeft(2, '0');
     final month = date.month.toString().padLeft(2, '0');
     return '$day/$month';

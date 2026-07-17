@@ -20,28 +20,46 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
-    function isOwnProfileDocument() {
-      return signedIn()
-        && (
-          resource.data.firebaseUID == request.auth.uid
-          || resource.data.email == request.auth.token.email
-        );
+    function isCreatingOwnProfile(userId) {
+      return isOwner(userId)
+        && request.resource.data.role == 'user'
+        && request.resource.data.status == 'active'
+        && request.resource.data.isBanned == false
+        && request.resource.data.firebaseUID == request.auth.uid;
     }
 
-    function isCreatingOwnProfile(userId) {
-      return signedIn()
-        && (
-          userId == request.auth.uid
-          || request.resource.data.firebaseUID == request.auth.uid
-          || request.resource.data.email == request.auth.token.email
-        );
+    function isSafeOwnProfileUpdate(userId) {
+      return isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          '_id',
+          'id',
+          'firebaseId',
+          'firebaseUID',
+          'email',
+          'role',
+          'status',
+          'isBanned',
+          'createdAt'
+        ]);
+    }
+
+    function bookingAfter(bookingId) {
+      return getAfter(
+        /databases/$(database)/documents/bookings/$(bookingId)
+      ).data;
+    }
+
+    function selectedCourt(fieldId) {
+      return get(
+        /databases/$(database)/documents/sportFields/$(fieldId)
+      ).data;
     }
 
     match /users/{userId} {
-      allow get: if isOwner(userId) || isOwnProfileDocument() || isAdmin();
-      allow list: if isOwnProfileDocument() || isAdmin();
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
       allow create: if isCreatingOwnProfile(userId) || isAdmin();
-      allow update: if isOwner(userId) || isOwnProfileDocument() || isAdmin();
+      allow update: if isSafeOwnProfileUpdate(userId) || isAdmin();
       allow delete: if isAdmin();
     }
 
@@ -61,17 +79,75 @@ service cloud.firestore {
     }
 
     match /bookings/{bookingId} {
-      allow read: if signedIn();
-      allow create: if signedIn();
-      allow update: if isAdmin()
+      allow read: if isAdmin()
         || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data._id == bookingId
+        && request.resource.data.id == bookingId
+        && request.resource.data.status == 'booked'
+        && request.resource.data.startMinutes is int
+        && request.resource.data.endMinutes is int
+        && request.resource.data.startMinutes < request.resource.data.endMinutes
+        && request.resource.data.startMinutes % 30 == 0
+        && request.resource.data.endMinutes % 30 == 0
+        && request.resource.data.endMinutes - request.resource.data.startMinutes <= 240
+        && request.resource.data.scheduledStart is timestamp
+        && request.resource.data.scheduledEnd is timestamp
+        && request.resource.data.scheduledStart >= request.time
+        && request.resource.data.scheduledEnd > request.resource.data.scheduledStart
+        && request.resource.data.participants is int
+        && request.resource.data.participants > 0
+        && request.resource.data.participants
+          <= selectedCourt(request.resource.data.fieldId).capacity
+        && selectedCourt(request.resource.data.fieldId).complexId
+          == request.resource.data.venueId
+        && selectedCourt(request.resource.data.fieldId).status == 'active'
+        && request.resource.data.totalPrice is int
+        && request.resource.data.totalPrice >= 0;
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.status == 'cancelled'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status',
+            'updatedAt'
+          ])
+        );
       allow delete: if isAdmin();
     }
 
     match /bookingSlotLocks/{lockId} {
       allow read: if signedIn();
-      allow create: if signedIn();
-      allow update, delete: if isAdmin();
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'booked'
+        && request.resource.data.startMinutes is int
+        && request.resource.data.startMinutes
+          >= bookingAfter(request.resource.data.bookingId).startMinutes
+        && request.resource.data.startMinutes
+          < bookingAfter(request.resource.data.bookingId).endMinutes
+        && bookingAfter(request.resource.data.bookingId).userId
+          == request.auth.uid
+        && bookingAfter(request.resource.data.bookingId).venueId
+          == request.resource.data.venueId
+        && bookingAfter(request.resource.data.bookingId).fieldId
+          == request.resource.data.fieldId
+        && bookingAfter(request.resource.data.bookingId).dateKey
+          == request.resource.data.dateKey;
+      allow update: if isAdmin();
+      allow delete: if isAdmin()
+        || (
+          signedIn()
+          && (
+            resource.data.userId == request.auth.uid
+            || get(
+              /databases/$(database)/documents/bookings/$(resource.data.bookingId)
+            ).data.userId == request.auth.uid
+          )
+        );
     }
   }
 }

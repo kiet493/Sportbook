@@ -42,7 +42,7 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const RoleGuard(
-            requiredRole: UserRole.staff,
+            requiredRole: UserRole.admin,
             child: ManageVenuesPage(),
           ),
         );

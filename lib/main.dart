@@ -7,9 +7,10 @@ import 'models/court_booking.dart';
 import 'models/user_model.dart';
 import 'firebase_options.dart';
 import 'providers/firebase_providers.dart';
+import 'providers/booking_providers.dart';
 import 'providers/registration_providers.dart';
 import 'routes/app_router.dart';
-import 'views/admin/manage_users_page.dart';
+import 'views/admin/admin_dashboard_page.dart';
 import 'views/admin/manage_venues_page.dart';
 import 'views/onboarding/onboarding_page.dart';
 import 'views/auth/login_page.dart';
@@ -90,14 +91,8 @@ class _AppControllerState extends ConsumerState<AppController> {
       "home"; // home, search, history, favorites, profile, detail, booking, success, booking-detail
 
   Venue? _selectedVenue;
-  late BookingInfo _selectedBooking;
+  BookingInfo? _selectedBooking;
   CourtBooking? _lastCreatedBooking;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedBooking = MOCK_BOOKINGS[0];
-  }
 
   void _transitionPhase(String to) {
     setState(() {
@@ -137,9 +132,11 @@ class _AppControllerState extends ConsumerState<AppController> {
     });
   }
 
-  void _goSuccess() {
+  void _rebook(Venue venue) {
     setState(() {
-      _screen = "success";
+      _selectedVenue = venue;
+      _lastCreatedBooking = null;
+      _screen = 'booking';
     });
   }
 
@@ -188,15 +185,28 @@ class _AppControllerState extends ConsumerState<AppController> {
                 _screen = "booking-detail";
               });
             },
+            onRebook: _rebook,
             onNav: _goScreen,
             activeNav: _screen,
           );
           break;
         case "booking-detail":
-          activeWidget = BookingDetailPage(
-            booking: _selectedBooking,
-            onBack: () => _goScreen("history"),
-          );
+          final booking = _selectedBooking;
+          activeWidget = booking == null
+              ? BookingHistoryPage(
+                  onBack: () => _goScreen('home'),
+                  onViewDetail: (selected) {
+                    setState(() => _selectedBooking = selected);
+                  },
+                  onRebook: _rebook,
+                  onNav: _goScreen,
+                  activeNav: 'history',
+                )
+              : BookingDetailPage(
+                  booking: booking,
+                  onBack: () => _goScreen("history"),
+                  onRebook: () => _rebook(booking.venue),
+                );
           break;
         case "favorites":
           activeWidget = FavoritesPage(onNav: _goScreen, activeNav: _screen);
@@ -211,12 +221,14 @@ class _AppControllerState extends ConsumerState<AppController> {
         case "admin":
           activeWidget = RoleGuard(
             requiredRole: UserRole.admin,
-            child: ManageUsersPage(onBack: () => _goScreen("home")),
+            child: AdminDashboardPage(
+              onLogout: () => _transitionPhase('login'),
+            ),
           );
           break;
         case "manage-venues":
           activeWidget = RoleGuard(
-            requiredRole: UserRole.staff,
+            requiredRole: UserRole.admin,
             child: ManageVenuesPage(onBack: () => _goScreen("profile")),
           );
           break;
@@ -249,14 +261,21 @@ class _AppControllerState extends ConsumerState<AppController> {
                   venue: venue,
                   onBack: () => _goScreen("detail"),
                   onConfirm: (booking) {
-                    _lastCreatedBooking = booking;
-                    _goSuccess();
+                    setState(() {
+                      _lastCreatedBooking = booking;
+                      _selectedBooking = bookingInfoFromCourtBooking(
+                        booking,
+                        venue: venue,
+                      );
+                      _screen = 'success';
+                    });
                   },
                 );
           break;
         case "success":
           final venue = _selectedVenue;
-          activeWidget = venue == null
+          final createdBooking = _lastCreatedBooking;
+          activeWidget = venue == null || createdBooking == null
               ? HomePage(
                   onVenueTap: _goVenue,
                   onNav: _goScreen,
@@ -264,22 +283,10 @@ class _AppControllerState extends ConsumerState<AppController> {
                 )
               : BookingSuccessPage(
                   venue: venue,
+                  booking: createdBooking,
                   onHome: () => _goScreen("home"),
                   onViewBooking: () {
-                    setState(() {
-                      _selectedBooking = _lastCreatedBooking == null
-                          ? MOCK_BOOKINGS[0]
-                          : BookingInfo(
-                              id: _lastCreatedBooking!.id,
-                              venue: venue,
-                              date: _lastCreatedBooking!.dateKey,
-                              time: _lastCreatedBooking!.timeRange,
-                              status: _lastCreatedBooking!.status,
-                              amount: "${_lastCreatedBooking!.totalPrice}đ",
-                              court: _lastCreatedBooking!.courtName,
-                            );
-                      _screen = "booking-detail";
-                    });
+                    _goScreen("booking-detail");
                   },
                 );
           break;

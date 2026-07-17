@@ -7,6 +7,7 @@ import '../../core/widgets/back_chevron_button.dart';
 import '../../models/court_booking.dart';
 import '../../providers/booking_providers.dart';
 import '../../providers/registration_providers.dart';
+import '../../services/Firebase/booking_firestore_service.dart';
 
 class ManageVenuesPage extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
@@ -31,7 +32,7 @@ class _ManageVenuesPageState extends ConsumerState<ManageVenuesPage> {
         elevation: 0,
         leading: BackChevronButton(onPressed: widget.onBack),
         title: const Text(
-          'Quan ly san',
+          'Quản lý sân',
           style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 16,
@@ -41,7 +42,7 @@ class _ManageVenuesPageState extends ConsumerState<ManageVenuesPage> {
         centerTitle: true,
         actions: [
           IconButton(
-            tooltip: 'Them cum san',
+            tooltip: 'Thêm cụm sân',
             onPressed: () => _showVenueSheet(context),
             icon: const Icon(Icons.add_business, color: AppColors.primary),
           ),
@@ -86,8 +87,22 @@ class _ManageVenuesPageState extends ConsumerState<ManageVenuesPage> {
             ],
           );
         },
-        error: (error, _) =>
-            Center(child: Text('Khong tai duoc danh sach san: $error')),
+        error: (error, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Không tải được danh sách sân: $error'),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () => ref.invalidate(managedVenuesProvider),
+                  child: const Text('Thử lại'),
+                ),
+              ],
+            ),
+          ),
+        ),
         loading: () => const Center(child: CircularProgressIndicator()),
       ),
     );
@@ -101,6 +116,7 @@ class _ManageVenuesPageState extends ConsumerState<ManageVenuesPage> {
     final result = await showModalBottomSheet<ManagedVenue>(
       context: context,
       isScrollControlled: true,
+      showDragHandle: true,
       builder: (_) => _VenueFormSheet(venue: venue, currentOwnerId: ownerId),
     );
     if (result == null || !context.mounted) return;
@@ -135,14 +151,20 @@ class _VenueEditor extends ConsumerWidget {
             children: [
               const Expanded(
                 child: Text(
-                  'Danh sach san con',
+                  'Danh sách sân con',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                 ),
               ),
               TextButton.icon(
-                onPressed: () => _showCourtSheet(context, ref, venue),
+                onPressed: () => _showCourtSheet(
+                  context,
+                  ref,
+                  venue,
+                  suggestedSortOrder:
+                      (courtsAsync.valueOrNull?.length ?? 0) + 1,
+                ),
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('Them san'),
+                label: const Text('Thêm sân'),
               ),
             ],
           ),
@@ -154,7 +176,7 @@ class _VenueEditor extends ConsumerWidget {
                         .map((court) => _CourtTile(venue: venue, court: court))
                         .toList(),
                   ),
-            error: (error, _) => Text('Khong tai duoc san con: $error'),
+            error: (error, _) => Text('Không tải được sân con: $error'),
             loading: () => const Padding(
               padding: EdgeInsets.all(24),
               child: Center(child: CircularProgressIndicator()),
@@ -168,19 +190,23 @@ class _VenueEditor extends ConsumerWidget {
   Future<void> _showCourtSheet(
     BuildContext context,
     WidgetRef ref,
-    ManagedVenue venue, [
-    SportCourt? court,
-  ]) async {
+    ManagedVenue venue, {
+    int suggestedSortOrder = 1,
+  }) async {
     final result = await showModalBottomSheet<SportCourt>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _CourtFormSheet(venue: venue, court: court),
+      showDragHandle: true,
+      builder: (_) => _CourtFormSheet(
+        venue: venue,
+        suggestedSortOrder: suggestedSortOrder,
+      ),
     );
     if (result == null || !context.mounted) return;
     await _runAdminMutation(
       context,
       () => ref.read(bookingFirestoreServiceProvider).upsertCourt(result),
-      success: court == null ? 'Đã tạo sân' : 'Đã cập nhật sân',
+      success: 'Đã tạo sân',
     );
   }
 }
@@ -238,7 +264,7 @@ class _VenueSummaryCard extends ConsumerWidget {
               _InfoPill(icon: Icons.schedule, label: venue.hours),
               _InfoPill(
                 icon: Icons.payments_outlined,
-                label: '${formatVnd(venue.pricePerHour)}d/h',
+                label: '${formatVnd(venue.pricePerHour)}đ/giờ',
               ),
               _InfoPill(icon: Icons.sports, label: venue.sports.join(', ')),
             ],
@@ -249,13 +275,13 @@ class _VenueSummaryCard extends ConsumerWidget {
               OutlinedButton.icon(
                 onPressed: () => _showEditVenue(context, ref, venue),
                 icon: const Icon(Icons.edit_outlined, size: 18),
-                label: const Text('Sua'),
+                label: const Text('Sửa'),
               ),
               const SizedBox(width: 8),
               TextButton.icon(
                 onPressed: () => _confirmDeleteVenue(context, ref, venue),
                 icon: const Icon(Icons.delete_outline, size: 18),
-                label: const Text('Xoa'),
+                label: const Text('Xóa'),
               ),
             ],
           ),
@@ -273,6 +299,7 @@ class _VenueSummaryCard extends ConsumerWidget {
     final result = await showModalBottomSheet<ManagedVenue>(
       context: context,
       isScrollControlled: true,
+      showDragHandle: true,
       builder: (_) => _VenueFormSheet(venue: venue, currentOwnerId: ownerId),
     );
     if (result == null || !context.mounted) return;
@@ -291,16 +318,19 @@ class _VenueSummaryCard extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Xoa cum san?'),
-        content: Text('Ban co chac muon xoa "${venue.name}"?'),
+        title: const Text('Xóa cụm sân?'),
+        content: Text(
+          'Thao tác này sẽ xóa "${venue.name}", toàn bộ sân con và lịch mở sân. '
+          'Cụm sân có booking sắp tới sẽ không thể xóa.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Huy'),
+            child: const Text('Hủy'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Xoa'),
+            child: const Text('Xóa'),
           ),
         ],
       ),
@@ -351,7 +381,7 @@ class _CourtTile extends ConsumerWidget {
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
                 Text(
-                  '${court.sport} • ${formatVnd(court.pricePerHour)}d/h • suc chua ${court.capacity}',
+                  '${court.sport} • ${formatVnd(court.pricePerHour)}đ/giờ • sức chứa ${court.capacity}',
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
@@ -361,7 +391,7 @@ class _CourtTile extends ConsumerWidget {
             ),
           ),
           IconButton(
-            tooltip: court.active ? 'Khoa san' : 'Mo san',
+            tooltip: court.active ? 'Khóa sân' : 'Mở sân',
             onPressed: () => _runAdminMutation(
               context,
               () => ref
@@ -372,12 +402,12 @@ class _CourtTile extends ConsumerWidget {
             icon: Icon(court.active ? Icons.lock_open : Icons.lock_outline),
           ),
           IconButton(
-            tooltip: 'Sua san',
+            tooltip: 'Sửa sân',
             onPressed: () => _showCourtSheet(context, ref, venue, court),
             icon: const Icon(Icons.edit_outlined),
           ),
           IconButton(
-            tooltip: 'Xoa san',
+            tooltip: 'Xóa sân',
             onPressed: () => _confirmDeleteCourt(context, ref, court),
             icon: const Icon(Icons.delete_outline, color: AppColors.danger),
           ),
@@ -395,7 +425,12 @@ class _CourtTile extends ConsumerWidget {
     final result = await showModalBottomSheet<SportCourt>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _CourtFormSheet(venue: venue, court: court),
+      showDragHandle: true,
+      builder: (_) => _CourtFormSheet(
+        venue: venue,
+        court: court,
+        suggestedSortOrder: court.sortOrder,
+      ),
     );
     if (result == null || !context.mounted) return;
     await _runAdminMutation(
@@ -414,7 +449,10 @@ class _CourtTile extends ConsumerWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Xóa sân?'),
-        content: Text('Bạn có chắc muốn xóa "${court.name}"?'),
+        content: Text(
+          'Bạn có chắc muốn xóa "${court.name}" và lịch mở sân liên quan? '
+          'Sân có booking sắp tới sẽ không thể xóa.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -477,8 +515,16 @@ Future<void> _runAdminMutation(
     messenger.showSnackBar(SnackBar(content: Text(success)));
   } catch (error) {
     if (!context.mounted) return;
+    final message = switch (error) {
+      ActiveVenueBookingsException exception =>
+        'Không thể xóa "${exception.venueName}" vì còn booking sắp tới. Hãy khóa cụm sân thay vì xóa.',
+      ActiveCourtBookingsException exception =>
+        'Không thể xóa "${exception.courtName}" vì còn booking sắp tới. Hãy khóa sân thay vì xóa.',
+      VenueDataException exception => exception.message,
+      _ => 'Không thể lưu dữ liệu Firebase: $error',
+    };
     messenger.showSnackBar(
-      SnackBar(content: Text('Không thể lưu dữ liệu Firebase: $error')),
+      SnackBar(content: Text(message)),
     );
   }
 }
@@ -501,10 +547,7 @@ class _VenueFormSheetState extends State<_VenueFormSheet> {
   late final TextEditingController _hours;
   late final TextEditingController _price;
   late final TextEditingController _image;
-  late final TextEditingController _images;
   late final TextEditingController _description;
-  late final TextEditingController _coordinates;
-  late final TextEditingController _ownerId;
   late bool _active;
 
   @override
@@ -516,13 +559,12 @@ class _VenueFormSheetState extends State<_VenueFormSheet> {
     _address = TextEditingController(text: venue.address);
     _hours = TextEditingController(text: venue.hours);
     _price = TextEditingController(text: venue.pricePerHour.toString());
-    _image = TextEditingController(text: venue.image);
-    _images = TextEditingController(text: venue.images.join(', '));
-    _description = TextEditingController(text: venue.description);
-    _coordinates = TextEditingController(text: venue.coordinates);
-    _ownerId = TextEditingController(
-      text: venue.ownerId.isNotEmpty ? venue.ownerId : widget.currentOwnerId,
+    _image = TextEditingController(
+      text: venue.image.isNotEmpty
+          ? venue.image
+          : (venue.images.firstOrNull ?? ''),
     );
+    _description = TextEditingController(text: venue.description);
     _active = venue.active;
   }
 
@@ -534,10 +576,7 @@ class _VenueFormSheetState extends State<_VenueFormSheet> {
     _hours.dispose();
     _price.dispose();
     _image.dispose();
-    _images.dispose();
     _description.dispose();
-    _coordinates.dispose();
-    _ownerId.dispose();
     super.dispose();
   }
 
@@ -557,44 +596,54 @@ class _VenueFormSheetState extends State<_VenueFormSheet> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                widget.venue == null ? 'Them cum san' : 'Sua cum san',
+                widget.venue == null ? 'Thêm cụm sân' : 'Sửa cụm sân',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 14),
-              _TextInput(controller: _name, label: 'Ten cum san'),
-              _TextInput(controller: _ownerId, label: 'Owner ID'),
+              _TextInput(controller: _name, label: 'Tên cụm sân'),
               _TextInput(
                 controller: _sports,
-                label: 'Mon the thao, cach nhau bang dau phay',
+                label: 'Môn thể thao, cách nhau bằng dấu phẩy',
               ),
-              _TextInput(controller: _address, label: 'Location'),
-              _TextInput(controller: _coordinates, label: 'Coordinates'),
-              _TextInput(controller: _hours, label: 'Gio mo cua'),
+              _TextInput(controller: _address, label: 'Địa chỉ'),
+              _TextInput(
+                controller: _hours,
+                label: 'Giờ mở cửa (HH:mm - HH:mm)',
+                validate: _validateHours,
+              ),
               _TextInput(
                 controller: _price,
-                label: 'Gia tham chieu moi gio',
+                label: 'Giá tham chiếu mỗi giờ',
                 keyboardType: TextInputType.number,
                 minNumber: 1,
               ),
-              _TextInput(controller: _image, label: 'Anh dai dien URL'),
               _TextInput(
-                controller: _images,
-                label: 'Images URLs, cach nhau bang dau phay',
+                controller: _image,
+                label: 'Ảnh URL',
+                isRequired: false,
+                validate: _validateUrl,
               ),
               _TextInput(
                 controller: _description,
-                label: 'Description',
+                label: 'Mô tả',
                 maxLines: 3,
+                isRequired: false,
               ),
               SwitchListTile(
                 value: _active,
                 onChanged: (value) => setState(() => _active = value),
-                title: const Text('Dang hoat dong'),
+                title: const Text('Đang hoạt động'),
               ),
-              FilledButton(onPressed: _submit, child: const Text('Luu')),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _submit,
+                  child: const Text('Lưu cụm sân'),
+                ),
+              ),
             ],
           ),
         ),
@@ -605,7 +654,6 @@ class _VenueFormSheetState extends State<_VenueFormSheet> {
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
     final old = widget.venue ?? ManagedVenue.empty();
-    final imageList = _splitCsv(_images.text);
     final image = _image.text.trim();
     Navigator.pop(
       context,
@@ -617,10 +665,11 @@ class _VenueFormSheetState extends State<_VenueFormSheet> {
         pricePerHour: int.parse(_price.text.trim()),
         active: _active,
         image: image,
-        images: imageList.contains(image) ? imageList : [image, ...imageList],
+        images: image.isEmpty ? const [] : [image],
         description: _description.text.trim(),
-        coordinates: _coordinates.text.trim(),
-        ownerId: _ownerId.text.trim(),
+        ownerId: old.ownerId.isNotEmpty
+            ? old.ownerId
+            : widget.currentOwnerId,
       ),
     );
   }
@@ -629,8 +678,13 @@ class _VenueFormSheetState extends State<_VenueFormSheet> {
 class _CourtFormSheet extends StatefulWidget {
   final ManagedVenue venue;
   final SportCourt? court;
+  final int suggestedSortOrder;
 
-  const _CourtFormSheet({required this.venue, this.court});
+  const _CourtFormSheet({
+    required this.venue,
+    this.court,
+    required this.suggestedSortOrder,
+  });
 
   @override
   State<_CourtFormSheet> createState() => _CourtFormSheetState();
@@ -642,7 +696,6 @@ class _CourtFormSheetState extends State<_CourtFormSheet> {
   late final TextEditingController _sport;
   late final TextEditingController _location;
   late final TextEditingController _capacity;
-  late final TextEditingController _images;
   late final TextEditingController _price;
   late final TextEditingController _amenities;
   late final TextEditingController _sortOrder;
@@ -661,20 +714,13 @@ class _CourtFormSheetState extends State<_CourtFormSheet> {
     _location = TextEditingController(
       text: court?.location ?? widget.venue.address,
     );
-    _capacity = TextEditingController(text: (court?.capacity ?? 10).toString());
-    _images = TextEditingController(
-      text:
-          (court?.images.isNotEmpty == true
-                  ? court!.images
-                  : widget.venue.images)
-              .join(', '),
-    );
+    _capacity = TextEditingController(text: (court?.capacity ?? 4).toString());
     _price = TextEditingController(
       text: (court?.pricePerHour ?? widget.venue.pricePerHour).toString(),
     );
     _amenities = TextEditingController(text: court?.amenities.join(', ') ?? '');
     _sortOrder = TextEditingController(
-      text: (court?.sortOrder ?? 1).toString(),
+      text: (court?.sortOrder ?? widget.suggestedSortOrder).toString(),
     );
     _active = court?.active ?? true;
   }
@@ -685,7 +731,6 @@ class _CourtFormSheetState extends State<_CourtFormSheet> {
     _sport.dispose();
     _location.dispose();
     _capacity.dispose();
-    _images.dispose();
     _price.dispose();
     _amenities.dispose();
     _sortOrder.dispose();
@@ -708,49 +753,54 @@ class _CourtFormSheetState extends State<_CourtFormSheet> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                widget.court == null ? 'Them san con' : 'Sua san con',
+                widget.court == null ? 'Thêm sân con' : 'Sửa sân con',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 14),
-              _ReadOnlyInfo(label: 'Complex ID', value: widget.venue.id),
-              _TextInput(controller: _name, label: 'Name'),
-              _TextInput(controller: _sport, label: 'Type'),
-              _TextInput(controller: _location, label: 'Location'),
+              _ReadOnlyInfo(label: 'Mã cụm sân', value: widget.venue.id),
+              _TextInput(controller: _name, label: 'Tên sân'),
+              _TextInput(controller: _sport, label: 'Môn thể thao'),
+              _TextInput(controller: _location, label: 'Vị trí'),
               _TextInput(
                 controller: _capacity,
-                label: 'Capacity',
+                label: 'Sức chứa',
                 keyboardType: TextInputType.number,
                 minNumber: 1,
               ),
               _TextInput(
                 controller: _price,
-                label: 'Price per hour',
+                label: 'Giá mỗi giờ',
                 keyboardType: TextInputType.number,
                 minNumber: 1,
               ),
               _TextInput(
-                controller: _images,
-                label: 'Images URLs, cach nhau bang dau phay',
-              ),
-              _TextInput(
                 controller: _amenities,
-                label: 'Amenities, cach nhau bang dau phay',
+                label: 'Tiện ích, cách nhau bằng dấu phẩy',
+                isRequired: false,
               ),
               _TextInput(
                 controller: _sortOrder,
-                label: 'Thu tu hien thi',
+                label: 'Thứ tự hiển thị',
                 keyboardType: TextInputType.number,
                 minNumber: 1,
               ),
               SwitchListTile(
                 value: _active,
                 onChanged: (value) => setState(() => _active = value),
-                title: Text(_active ? 'Status: active' : 'Status: inactive'),
+                title: Text(
+                  _active ? 'Trạng thái: hoạt động' : 'Trạng thái: tạm khóa',
+                ),
               ),
-              FilledButton(onPressed: _submit, child: const Text('Luu')),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _submit,
+                  child: const Text('Lưu sân'),
+                ),
+              ),
             ],
           ),
         ),
@@ -768,7 +818,7 @@ class _CourtFormSheetState extends State<_CourtFormSheet> {
           name: '',
           sport: '',
           location: widget.venue.address,
-          capacity: 10,
+          capacity: 4,
           images: widget.venue.images,
           pricePerHour: widget.venue.pricePerHour,
           amenities: const [],
@@ -783,7 +833,6 @@ class _CourtFormSheetState extends State<_CourtFormSheet> {
         sport: _sport.text.trim(),
         location: _location.text.trim(),
         capacity: int.parse(_capacity.text.trim()),
-        images: _splitCsv(_images.text),
         pricePerHour: int.parse(_price.text.trim()),
         amenities: _splitCsv(_amenities.text),
         active: _active,
@@ -799,6 +848,8 @@ class _TextInput extends StatelessWidget {
   final int maxLines;
   final TextInputType? keyboardType;
   final int? minNumber;
+  final bool isRequired;
+  final String? Function(String value)? validate;
 
   const _TextInput({
     required this.controller,
@@ -806,6 +857,8 @@ class _TextInput extends StatelessWidget {
     this.maxLines = 1,
     this.keyboardType,
     this.minNumber,
+    this.isRequired = true,
+    this.validate,
   });
 
   @override
@@ -822,15 +875,17 @@ class _TextInput extends StatelessWidget {
         ),
         validator: (value) {
           final text = value?.trim() ?? '';
-          if (text.isEmpty) return 'Bat buoc nhap';
+          if (text.isEmpty) {
+            return isRequired ? 'Bắt buộc nhập' : null;
+          }
           if (keyboardType == TextInputType.number) {
             final parsed = int.tryParse(text);
-            if (parsed == null) return 'Vui long nhap so hop le';
+            if (parsed == null) return 'Vui lòng nhập số hợp lệ';
             if (minNumber != null && parsed < minNumber!) {
-              return 'Gia tri phai lon hon hoac bang $minNumber';
+              return 'Giá trị phải lớn hơn hoặc bằng $minNumber';
             }
           }
-          return null;
+          return validate?.call(text);
         },
       ),
     );
@@ -866,7 +921,7 @@ class _ReadOnlyInfo extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            value.isEmpty ? 'Se duoc tao sau khi luu' : value,
+            value.isEmpty ? 'Sẽ được tạo sau khi lưu' : value,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
           ),
         ],
@@ -881,6 +936,23 @@ List<String> _splitCsv(String value) {
       .map((item) => item.trim())
       .where((item) => item.isNotEmpty)
       .toList(growable: false);
+}
+
+String? _validateHours(String value) {
+  final valid = RegExp(
+    r'^(?:[01]\d|2[0-3]):[0-5]\d\s*-\s*(?:[01]\d|2[0-3]):[0-5]\d$',
+  ).hasMatch(value);
+  return valid ? null : 'Nhập theo định dạng HH:mm - HH:mm';
+}
+
+String? _validateUrl(String value) {
+  final uri = Uri.tryParse(value);
+  if (uri == null ||
+      !uri.hasScheme ||
+      (uri.scheme != 'http' && uri.scheme != 'https')) {
+    return 'URL phải bắt đầu bằng http:// hoặc https://';
+  }
+  return null;
 }
 
 class _EmptyVenues extends StatelessWidget {
@@ -903,14 +975,14 @@ class _EmptyVenues extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Chua co cum san nao',
+              'Chưa có cụm sân nào',
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: onCreate,
               icon: const Icon(Icons.add),
-              label: const Text('Them cum san'),
+              label: const Text('Thêm cụm sân'),
             ),
           ],
         ),
@@ -935,13 +1007,17 @@ class _EmptyCourts extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          const Text('Cum san nay chua co san con.'),
+          const Text('Cụm sân này chưa có sân con.'),
           const SizedBox(height: 10),
           FilledButton(
-            onPressed: () => ref
-                .read(bookingFirestoreServiceProvider)
-                .ensureVenueWithDefaultCourts(venue),
-            child: const Text('Tao 4 san mac dinh'),
+            onPressed: () => _runAdminMutation(
+              context,
+              () => ref
+                  .read(bookingFirestoreServiceProvider)
+                  .ensureVenueWithDefaultCourts(venue),
+              success: 'Đã tạo 4 sân mặc định',
+            ),
+            child: const Text('Tạo 4 sân mặc định'),
           ),
         ],
       ),

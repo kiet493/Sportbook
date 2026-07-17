@@ -60,19 +60,23 @@ class SuccessDetailRow extends StatelessWidget {
   }
 }
 
-/// Card summarising the confirmed booking: id + thumbnail + details + QR.
+/// Card summarising the confirmed booking with persisted booking details.
 class SuccessBookingCard extends StatelessWidget {
   final String bookingId;
   final Venue venue;
+  final String court;
   final String date;
   final String timeRange;
+  final String totalPrice;
 
   const SuccessBookingCard({
     super.key,
     required this.bookingId,
     required this.venue,
+    required this.court,
     required this.date,
     required this.timeRange,
+    required this.totalPrice,
   });
 
   @override
@@ -152,59 +156,22 @@ class SuccessBookingCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           SuccessDetailRow(
+            icon: Icons.sports_tennis,
+            label: "Sân con",
+            value: court,
+          ),
+          const SizedBox(height: 10),
+          SuccessDetailRow(
             icon: Icons.flash_on,
             label: "Môn",
             value: venue.sport.isNotEmpty ? venue.sport[0] : "—",
           ),
           const SizedBox(height: 10),
-          const SuccessDetailRow(
-            icon: Icons.credit_card,
-            label: "Thanh toán",
-            value: "Đã thanh toán ✓",
+          SuccessDetailRow(
+            icon: Icons.payments_outlined,
+            label: "Chi phí sân",
+            value: totalPrice,
             isGreenText: true,
-          ),
-          const SizedBox(height: 16),
-          const Divider(color: Color(0xFFE2E8F0), height: 1.0, thickness: 1.0),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: const Icon(
-                  Icons.qr_code,
-                  color: Color(0xFF64748B),
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "QR Check-in",
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    "Xuất trình khi đến sân",
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ),
         ],
       ),

@@ -2,20 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../../core/utils/currency_formatter.dart';
 
-/// Itemized price card: base + service fee + discount (optional) + total.
+/// Cost summary only. Payment is intentionally outside the booking flow.
 class BookingPriceBreakdown extends StatelessWidget {
   final int duration;
-  final int total;
-  final int serviceFee;
-  final int discount;
+  final int hourlyPrice;
   final int finalTotal;
 
   const BookingPriceBreakdown({
     super.key,
     required this.duration,
-    required this.total,
-    required this.serviceFee,
-    required this.discount,
+    required this.hourlyPrice,
     required this.finalTotal,
   });
 
@@ -32,7 +28,7 @@ class BookingPriceBreakdown extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            "Chi tiết thanh toán",
+            "Chi phí dự kiến",
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
@@ -40,36 +36,12 @@ class BookingPriceBreakdown extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _Row(label: "Phí sân (${duration}h)", value: "${formatVnd(total)}đ"),
-          const SizedBox(height: 8),
           _Row(
-            label: "Phí dịch vụ (5%)",
-            value: "${formatVnd(serviceFee)}đ",
+            label: "Đơn giá sân",
+            value: "${formatVnd(hourlyPrice)}đ/giờ",
           ),
-          if (discount > 0) ...[
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "Giảm giá voucher",
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFFEF4444),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  "-${formatVnd(discount)}đ",
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFFEF4444),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ],
+          const SizedBox(height: 8),
+          _Row(label: "Thời lượng", value: "$duration giờ"),
           const SizedBox(height: 10),
           const Divider(color: Color(0xFFE2E8F0)),
           const SizedBox(height: 10),
@@ -77,7 +49,7 @@ class BookingPriceBreakdown extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                "Tổng cộng",
+                "Tổng chi phí sân",
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,

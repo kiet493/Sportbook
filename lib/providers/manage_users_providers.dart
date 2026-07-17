@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/user_model.dart';
 import '../repositories/user_repository.dart';
 import '../services/Firebase/firestore_service.dart';
 import '../viewmodels/manage_users_view_model.dart';
@@ -13,6 +14,10 @@ final firestoreServiceProvider = Provider<FirestoreService>((ref) {
 /// swapping the data backend happens in one place.
 final userRepositoryProvider = Provider<UserRepository>((ref) {
   return UserRepository(firestoreService: ref.watch(firestoreServiceProvider));
+});
+
+final allUsersProvider = StreamProvider<List<UserModel>>((ref) {
+  return ref.watch(userRepositoryProvider).watchAll();
 });
 
 class UserListFilter {

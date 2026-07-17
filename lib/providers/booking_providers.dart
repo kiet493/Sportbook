@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/court_booking.dart';
 import '../models/venue.dart';
 import '../services/Firebase/booking_firestore_service.dart';
+import 'registration_providers.dart';
 
 final bookingFirestoreServiceProvider = Provider<BookingFirestoreService>((
   ref,
@@ -73,6 +74,44 @@ final venueBookingsProvider =
           .watchBookings(venueId: query.venueId, date: query.dateKey);
     });
 
+final userBookingsProvider =
+    StreamProvider.family<List<CourtBooking>, String>((ref, userId) {
+      return ref
+          .watch(bookingFirestoreServiceProvider)
+          .watchUserBookings(userId);
+    });
+
+final adminBookingsProvider = StreamProvider<List<CourtBooking>>((ref) {
+  return ref.watch(bookingFirestoreServiceProvider).watchAllBookings();
+});
+
+final currentUserBookingInfosProvider =
+    Provider<AsyncValue<List<BookingInfo>>>((ref) {
+      final session = ref.watch(sessionProvider);
+      if (session == null) return const AsyncData([]);
+
+      final bookingsAsync = ref.watch(userBookingsProvider(session.user.id));
+      if (bookingsAsync.hasError) {
+        return AsyncError(
+          bookingsAsync.error!,
+          bookingsAsync.stackTrace ?? StackTrace.current,
+        );
+      }
+
+      final bookings = bookingsAsync.valueOrNull;
+      if (bookings == null) return const AsyncLoading();
+      final venues = ref.watch(publicVenuesProvider).valueOrNull ?? const [];
+      return AsyncData([
+        for (final booking in bookings)
+          bookingInfoFromCourtBooking(
+            booking,
+            venue: venues
+                .where((venue) => venue.firestoreId == booking.venueId)
+                .firstOrNull,
+          ),
+      ]);
+    });
+
 class BookingSubmitNotifier extends AsyncNotifier<CourtBooking?> {
   @override
   CourtBooking? build() => null;
@@ -104,6 +143,82 @@ final bookingSubmitProvider =
     AsyncNotifierProvider<BookingSubmitNotifier, CourtBooking?>(
       BookingSubmitNotifier.new,
     );
+
+class BookingCancelNotifier extends AsyncNotifier<void> {
+  @override
+  void build() {}
+
+  Future<String?> cancel(String bookingId) async {
+    state = const AsyncLoading();
+    try {
+      await ref
+          .read(bookingFirestoreServiceProvider)
+          .cancelBooking(bookingId);
+      state = const AsyncData(null);
+      ref.invalidate(venueBookingsProvider);
+      ref.invalidate(userBookingsProvider);
+      return null;
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      return 'Không thể hủy lịch đặt sân lúc này.';
+    }
+  }
+}
+
+final bookingCancelProvider = AsyncNotifierProvider<BookingCancelNotifier, void>(
+  BookingCancelNotifier.new,
+);
+
+BookingInfo bookingInfoFromCourtBooking(
+  CourtBooking booking, {
+  Venue? venue,
+}) {
+  final resolvedVenue = venue ??
+      Venue(
+        id: _stableIntId(booking.venueId),
+        firestoreId: booking.venueId,
+        name: booking.venueName.isEmpty ? 'Sân cầu lông' : booking.venueName,
+        sport: const ['Cầu lông'],
+        distance: '',
+        rating: 0,
+        reviews: 0,
+        hours: '',
+        price: '',
+        priceNum: 0,
+        available: true,
+        image: _fallbackVenueImage,
+        images: const [_fallbackVenueImage],
+        address: '',
+        description: '',
+      );
+
+  return BookingInfo(
+    id: booking.id,
+    venue: resolvedVenue,
+    date: _formatBookingDate(booking.dateKey),
+    time: booking.timeRange,
+    status: bookingDisplayStatus(booking),
+    amount: _formatVnd(booking.totalPrice),
+    court: booking.courtName.isEmpty ? 'Sân đã đặt' : booking.courtName,
+  );
+}
+
+String _formatBookingDate(String rawDate) {
+  final date = DateTime.tryParse(rawDate);
+  if (date == null) return rawDate;
+  const weekdays = [
+    'Thứ 2',
+    'Thứ 3',
+    'Thứ 4',
+    'Thứ 5',
+    'Thứ 6',
+    'Thứ 7',
+    'Chủ nhật',
+  ];
+  final day = date.day.toString().padLeft(2, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  return '${weekdays[date.weekday - 1]}, $day/$month/${date.year}';
+}
 
 List<Venue> _toPublicVenues(List<ManagedVenue> venues, List<SportCourt> courts) {
   return venues
