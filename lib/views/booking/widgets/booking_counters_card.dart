@@ -6,6 +6,7 @@ import 'booking_counter_button.dart';
 class BookingCountersCard extends StatelessWidget {
   final int duration;
   final int players;
+  final int maxPlayers;
   final String priceLabel;
   final ValueChanged<int> onDurationChanged;
   final ValueChanged<int> onPlayersChanged;
@@ -13,12 +14,12 @@ class BookingCountersCard extends StatelessWidget {
   static const int _minDuration = 1;
   static const int _maxDuration = 4;
   static const int _minPlayers = 2;
-  static const int _maxPlayers = 22;
 
   const BookingCountersCard({
     super.key,
     required this.duration,
     required this.players,
+    required this.maxPlayers,
     required this.priceLabel,
     required this.onDurationChanged,
     required this.onPlayersChanged,
@@ -100,10 +101,10 @@ class BookingCountersCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     "Số người chơi",
                     style: TextStyle(
                       fontSize: 14,
@@ -111,10 +112,10 @@ class BookingCountersCard extends StatelessWidget {
                       color: Color(0xFF0F172A),
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
-                    "Tối đa 22 người",
-                    style: TextStyle(
+                    "Tối đa $maxPlayers người",
+                    style: const TextStyle(
                       fontSize: 11,
                       color: Color(0xFF64748B),
                     ),
@@ -142,8 +143,8 @@ class BookingCountersCard extends StatelessWidget {
                   BookingCounterButton(
                     icon: Icons.add,
                     isPrimary: true,
-                    onTap: players < _maxPlayers
-                        ? () => _increment(players, _maxPlayers, onPlayersChanged)
+                    onTap: players < maxPlayers
+                        ? () => _increment(players, maxPlayers, onPlayersChanged)
                         : null,
                   ),
                 ],

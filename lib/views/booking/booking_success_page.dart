@@ -1,7 +1,7 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 
+import '../../core/utils/currency_formatter.dart';
+import '../../models/court_booking.dart';
 import '../../models/venue.dart';
 import 'widgets/success_bottom_actions.dart';
 import 'widgets/success_booking_card.dart';
@@ -13,12 +13,14 @@ import 'widgets/success_hero_check.dart';
 /// sticky bottom actions.
 class BookingSuccessPage extends StatefulWidget {
   final Venue venue;
+  final CourtBooking booking;
   final VoidCallback onHome;
   final VoidCallback onViewBooking;
 
   const BookingSuccessPage({
     super.key,
     required this.venue,
+    required this.booking,
     required this.onHome,
     required this.onViewBooking,
   });
@@ -31,7 +33,6 @@ class _BookingSuccessPageState extends State<BookingSuccessPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _confettiController;
   late final List<ConfettiDot> _dots;
-  final String _bookingId = "BK${Random().nextInt(90000) + 10000}";
 
   @override
   void initState() {
@@ -92,28 +93,13 @@ class _BookingSuccessPageState extends State<BookingSuccessPage>
                         ),
                         const SizedBox(height: 28),
                         SuccessBookingCard(
-                          bookingId: _bookingId,
+                          bookingId: widget.booking.id,
                           venue: widget.venue,
-                          date: "Thứ 7, 12/07/2025",
-                          timeRange: "19:00 – 20:00",
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: const [
-                            Expanded(
-                              child: SuccessSecondaryActionButton(
-                                icon: Icons.download_outlined,
-                                label: "Lưu vé",
-                              ),
-                            ),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: SuccessSecondaryActionButton(
-                                icon: Icons.calendar_today_outlined,
-                                label: "Thêm lịch",
-                              ),
-                            ),
-                          ],
+                          court: widget.booking.courtName,
+                          date: _formatDate(widget.booking.dateKey),
+                          timeRange: widget.booking.timeRange,
+                          totalPrice:
+                              '${formatVnd(widget.booking.totalPrice)}đ',
                         ),
                         const SizedBox(height: 24),
                       ],
@@ -130,5 +116,13 @@ class _BookingSuccessPageState extends State<BookingSuccessPage>
         ],
       ),
     );
+  }
+
+  String _formatDate(String rawDate) {
+    final date = DateTime.tryParse(rawDate);
+    if (date == null) return rawDate;
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    return '$day/$month/${date.year}';
   }
 }

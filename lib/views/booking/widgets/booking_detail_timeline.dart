@@ -9,16 +9,15 @@ import '../../../models/booking_model.dart';
 /// are UI copy and the times are presentation-only.
 List<TimelineStep> buildBookingTimeline({
   required String status,
-  String bookedAt = '10:23 AM',
-  String paidAt = '10:24 AM',
-  String confirmedAt = '10:25 AM',
+  String bookedAt = 'Đã ghi nhận',
 }) {
   return [
     TimelineStep(label: 'Đặt sân thành công', time: bookedAt, done: true),
-    TimelineStep(label: 'Thanh toán xác nhận', time: paidAt, done: true),
     TimelineStep(
-      label: 'Sân đã xác nhận',
-      time: confirmedAt,
+      label: status == BookingStatus.cancelled
+          ? 'Lịch đã được hủy'
+          : 'Sân đã xác nhận',
+      time: status == BookingStatus.cancelled ? 'Đã hủy' : 'Đã xác nhận',
       done: status != BookingStatus.cancelled,
     ),
     TimelineStep(

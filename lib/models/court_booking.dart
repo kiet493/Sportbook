@@ -325,6 +325,10 @@ class CourtBooking {
   String get timeRange =>
       '${formatMinutes(startMinutes)} - ${formatMinutes(endMinutes)}';
 
+  DateTime? get scheduledStart => _dateTimeForMinutes(dateKey, startMinutes);
+
+  DateTime? get scheduledEnd => _dateTimeForMinutes(dateKey, endMinutes);
+
   CourtBooking copyWith({
     String? id,
     String? venueId,
@@ -424,6 +428,18 @@ class CourtBooking {
       createdAt: _readDate(json['createdAt']) ?? DateTime.now(),
     );
   }
+}
+
+/// Maps the persisted booking state to the three statuses used by the UI.
+/// A booked slot becomes completed automatically after its end time.
+String bookingDisplayStatus(CourtBooking booking, {DateTime? now}) {
+  if (booking.status == CourtSlotStatus.cancelled) return 'cancelled';
+
+  final end = booking.scheduledEnd;
+  if (end != null && !end.isAfter(now ?? DateTime.now())) {
+    return 'completed';
+  }
+  return 'upcoming';
 }
 
 class CourtSlotSelection {

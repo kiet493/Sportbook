@@ -8,11 +8,15 @@ import '../../../models/venue.dart';
 class BookingHistoryCard extends StatelessWidget {
   final BookingInfo booking;
   final ValueChanged<BookingInfo> onViewDetail;
+  final VoidCallback onCancel;
+  final VoidCallback onRebook;
 
   const BookingHistoryCard({
     super.key,
     required this.booking,
     required this.onViewDetail,
+    required this.onCancel,
+    required this.onRebook,
   });
 
   @override
@@ -60,6 +64,8 @@ class BookingHistoryCard extends StatelessWidget {
                 _CardActions(
                   booking: booking,
                   onViewDetail: onViewDetail,
+                  onCancel: onCancel,
+                  onRebook: onRebook,
                 ),
               ],
             ),
@@ -155,10 +161,14 @@ class _MetaRow extends StatelessWidget {
 class _CardActions extends StatelessWidget {
   final BookingInfo booking;
   final ValueChanged<BookingInfo> onViewDetail;
+  final VoidCallback onCancel;
+  final VoidCallback onRebook;
 
   const _CardActions({
     required this.booking,
     required this.onViewDetail,
+    required this.onCancel,
+    required this.onRebook,
   });
 
   @override
@@ -171,7 +181,7 @@ class _CardActions extends StatelessWidget {
             foregroundColor: const Color(0xFFEF4444),
             borderColor: const Color(0xFFFEE2E2),
             backgroundColor: const Color(0xFFFEF2F2),
-            onPressed: () {},
+            onPressed: onCancel,
           ),
           const SizedBox(width: 6),
         ],
@@ -181,7 +191,7 @@ class _CardActions extends StatelessWidget {
             foregroundColor: const Color(0xFF2563EB),
             borderColor: const Color(0xFFDBEAFE),
             backgroundColor: const Color(0xFFEFF6FF),
-            onPressed: () {},
+            onPressed: onRebook,
           ),
           const SizedBox(width: 6),
         ],
