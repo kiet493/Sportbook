@@ -99,6 +99,41 @@ class FirebaseAuthService {
     await user.updateDisplayName(fullName);
   }
 
+  Future<void> updatePhotoUrl(String photoUrl) async {
+    final user = currentUser;
+    if (user == null) return;
+    await user.updatePhotoURL(photoUrl);
+  }
+
+  Future<void> updatePassword(String password) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'requires-sign-in',
+        message: 'Bạn cần đăng nhập để đổi mật khẩu.',
+      );
+    }
+    await user.updatePassword(password);
+  }
+
+  Future<void> reauthenticate({
+    required String email,
+    required String password,
+  }) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'requires-sign-in',
+        message: 'Bạn cần đăng nhập để tiếp tục.',
+      );
+    }
+    final credential = EmailAuthProvider.credential(
+      email: email.trim().toLowerCase(),
+      password: password,
+    );
+    await user.reauthenticateWithCredential(credential);
+  }
+
   Future<void> signOut() => _instance.signOut();
 
   Future<void> deleteCurrentUser() async {

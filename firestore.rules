@@ -55,6 +55,18 @@ service cloud.firestore {
       ).data;
     }
 
+    function eventRegistrationAfter(eventId, userId) {
+      return getAfter(
+        /databases/$(database)/documents/event_registrations/$(eventId + '_' + userId)
+      ).data;
+    }
+
+    function matchmakingMemberAfter(roomId, userId) {
+      return getAfter(
+        /databases/$(database)/documents/matchmaking_members/$(roomId + '_' + userId)
+      ).data;
+    }
+
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
@@ -148,6 +160,98 @@ service cloud.firestore {
             ).data.userId == request.auth.uid
           )
         );
+    }
+
+    match /events/{eventId} {
+      allow read: if signedIn();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'registeredCount',
+            'updatedAt'
+          ])
+          && request.resource.data.registeredCount
+            == resource.data.registeredCount + 1
+          && request.resource.data.registeredCount <= resource.data.capacity
+          && eventRegistrationAfter(eventId, request.auth.uid).eventId == eventId
+          && eventRegistrationAfter(eventId, request.auth.uid).userId
+            == request.auth.uid
+        );
+    }
+
+    match /event_registrations/{registrationId} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.eventId is string
+        && registrationId
+          == request.resource.data.eventId + '_' + request.auth.uid
+        && request.resource.data.status == 'registered';
+      allow update, delete: if isAdmin();
+    }
+
+    match /matchmaking_rooms/{roomId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.memberCount == 1
+        && request.resource.data.maxMembers >= 2
+        && request.resource.data.status == 'open';
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'memberCount',
+            'updatedAt'
+          ])
+          && request.resource.data.memberCount == resource.data.memberCount + 1
+          && request.resource.data.memberCount <= resource.data.maxMembers
+          && matchmakingMemberAfter(roomId, request.auth.uid).roomId == roomId
+          && matchmakingMemberAfter(roomId, request.auth.uid).userId
+            == request.auth.uid
+        );
+      allow delete: if isAdmin() || (
+        signedIn() && resource.data.createdBy == request.auth.uid
+      );
+    }
+
+    match /matchmaking_members/{memberId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.roomId is string
+        && memberId == request.resource.data.roomId + '_' + request.auth.uid;
+      allow update: if false;
+      allow delete: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    match /equipments/{itemId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /consumables/{itemId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /news/{newsId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /policy_categories/{categoryId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /policies/{policyId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
     }
   }
 }

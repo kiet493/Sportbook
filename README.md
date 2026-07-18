@@ -214,3 +214,57 @@ final bookingViewModelProvider = ChangeNotifierProvider(
 7. Thêm route trong `routes/app_router.dart`.
 8. Nếu widget con phức tạp -> tách vào `views/<feature>/widgets/`.
 9. Nếu widget có thể dùng cho feature khác -> đẩy lên `core/widgets/`.
+
+## Các module đã triển khai
+
+Dự án hiện dùng Riverpod (`Provider`, `StreamProvider`, `AsyncNotifier`) cho
+dependency injection và state management. Feature mới vẫn giữ luồng phân tầng:
+
+```text
+View -> Provider/Notifier -> Repository -> Firebase Service -> Firestore/Storage
+```
+
+### Authentication + Profile
+
+- Splash, Onboarding, Login, Register và Forgot Password.
+- Profile, Edit Profile, Change Password.
+- Hồ sơ lưu tại `users`; avatar tải lên Firebase Storage tại
+  `users/{uid}/...`.
+- Người dùng chỉ được sửa thông tin hồ sơ an toàn; role, trạng thái và email do
+  admin quản lý.
+
+### Booking
+
+- Home, Field List/Search, Field Detail, Booking, Booking Success, Booking
+  History và Booking Detail.
+- Xem/tìm sân, đặt sân, chống trùng slot, hủy sân và xem lịch sử.
+- Tên collection đang dùng trong code/seed hiện tại là `fieldComplexes`,
+  `sportFields`, `schedules`, `bookings`, `bookingSlotLocks`.
+
+### Event + Matchmaking
+
+- Event List, Event Detail, Join Event.
+- Matchmaking List, Create Matchmaking, Matchmaking Detail.
+- Collection: `events`, `event_registrations`, `matchmaking_rooms`,
+  `matchmaking_members`.
+- Đăng ký/tham gia chạy bằng Firestore transaction để chống trùng thành viên và
+  không vượt quá sức chứa.
+
+### Admin / Manager
+
+- Dashboard, CRUD cụm sân/sân con và quản lý booking/người dùng.
+- CRUD thiết bị (`equipments`) và vật tư tiêu hao (`consumables`).
+- CRUD tin tức (`news`).
+- CRUD danh mục chính sách (`policy_categories`) và chính sách (`policies`).
+- Statistics tổng hợp user, sân, booking, giá trị booking, nội dung và kho.
+
+### Ngoài phạm vi
+
+Module Payment + Coupon + Transaction (Người 3) không được thêm hoặc chỉnh sửa
+trong đợt triển khai này.
+
+## Firebase Rules
+
+- Deploy `firestore.rules` để bật quyền cho các collection mới.
+- Deploy `storage.rules` để người dùng có thể upload avatar của chính mình (ảnh
+  nhỏ hơn 5 MB).

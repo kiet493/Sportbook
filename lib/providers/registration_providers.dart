@@ -4,11 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_model.dart';
 import '../repositories/user_repository.dart';
 import '../services/Firebase/firebase_auth_service.dart';
+import '../services/Firebase/storage_service.dart';
 import 'firebase_providers.dart';
 import 'manage_users_providers.dart';
 
 final firebaseAuthServiceProvider = Provider<FirebaseAuthService>((ref) {
   return FirebaseAuthService();
+});
+
+final storageServiceProvider = Provider<StorageService>((ref) {
+  return StorageService();
 });
 
 class SessionUser {
@@ -218,6 +223,98 @@ class LoginNotifier extends AsyncNotifier<bool> {
 
 final loginProvider = AsyncNotifierProvider<LoginNotifier, bool>(
   LoginNotifier.new,
+);
+
+class ProfileNotifier extends AsyncNotifier<void> {
+  @override
+  void build() {}
+
+  Future<String?> updateProfile({
+    required String fullName,
+    required String phone,
+    required String gender,
+    required String address,
+    DateTime? dateOfBirth,
+    String? avatarUrl,
+  }) async {
+    final session = ref.read(sessionProvider);
+    if (session == null) return 'Bạn cần đăng nhập để cập nhật hồ sơ.';
+
+    state = const AsyncLoading();
+    try {
+      final current = session.user;
+      final updated = current.copyWith(
+        fullName: fullName,
+        phone: phone,
+        gender: gender,
+        address: address,
+        dateOfBirth: dateOfBirth,
+        clearDateOfBirth: dateOfBirth == null,
+        avatarUrl: avatarUrl,
+      );
+      final saved = await ref
+          .read(userRepositoryProvider)
+          .saveAuthenticatedUserProfile(updated);
+      try {
+        final auth = ref.read(firebaseAuthServiceProvider);
+        await auth.updateDisplayName(saved.fullName);
+        if (avatarUrl != null && avatarUrl.isNotEmpty) {
+          await auth.updatePhotoUrl(avatarUrl);
+        }
+      } catch (_) {
+        // Firestore is the profile source of truth. Auth metadata is best-effort.
+      }
+      ref.read(sessionProvider.notifier).setUser(saved);
+      state = const AsyncData(null);
+      return null;
+    } on UserValidationException catch (error) {
+      state = const AsyncData(null);
+      return error.message;
+    } on FirebaseException catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      return _firestoreMessage(error);
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      return 'Không thể cập nhật hồ sơ lúc này.';
+    }
+  }
+
+  Future<String?> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final session = ref.read(sessionProvider);
+    if (session == null) return 'Bạn cần đăng nhập để đổi mật khẩu.';
+
+    state = const AsyncLoading();
+    try {
+      final auth = ref.read(firebaseAuthServiceProvider);
+      await auth.reauthenticate(
+        email: session.user.email,
+        password: currentPassword,
+      );
+      await auth.updatePassword(newPassword);
+      state = const AsyncData(null);
+      return null;
+    } on FirebaseAuthException catch (error) {
+      state = const AsyncData(null);
+      return switch (error.code) {
+        'wrong-password' ||
+        'invalid-credential' => 'Mật khẩu hiện tại không đúng.',
+        'weak-password' => 'Mật khẩu mới chưa đủ mạnh.',
+        'requires-recent-login' =>
+          'Phiên đăng nhập đã cũ, vui lòng đăng nhập lại.',
+        _ => error.message ?? 'Không thể đổi mật khẩu.',
+      };
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      return 'Không thể đổi mật khẩu lúc này.';
+    }
+  }
+}
+
+final profileProvider = AsyncNotifierProvider<ProfileNotifier, void>(
+  ProfileNotifier.new,
 );
 
 Future<UserModel> _ensureProfileForSignedInUser({

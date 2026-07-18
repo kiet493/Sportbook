@@ -8,11 +8,13 @@ import 'widgets/widgets.dart';
 class LoginPage extends ConsumerStatefulWidget {
   final VoidCallback onSuccess;
   final VoidCallback onRegister;
+  final VoidCallback onForgotPassword;
 
   const LoginPage({
     super.key,
     required this.onSuccess,
     required this.onRegister,
+    required this.onForgotPassword,
   });
 
   @override
@@ -74,26 +76,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     widget.onSuccess();
   }
 
-  Future<void> _forgotPassword() async {
-    final email = AuthValidators.normaliseEmail(_emailController.text);
-    final validationError = AuthValidators.email(email);
-    if (validationError != null) {
-      setState(() => _emailError = validationError);
-      return;
-    }
-
-    final error = await ref
-        .read(loginProvider.notifier)
-        .sendPasswordReset(email);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(error ?? 'Đã gửi liên kết đặt lại mật khẩu đến $email'),
-        backgroundColor: error == null ? const Color(0xFF16A34A) : null,
-      ),
-    );
-  }
-
   @override
   void dispose() {
     _emailController.dispose();
@@ -138,7 +120,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 setState(() => _rememberMe = !_rememberMe);
               },
               onSubmit: _validateAndSubmit,
-              onForgotPassword: _forgotPassword,
+              onForgotPassword: widget.onForgotPassword,
               onRegister: widget.onRegister,
             ),
           ],
