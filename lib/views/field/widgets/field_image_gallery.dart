@@ -31,12 +31,15 @@ class _FieldImageGalleryState extends State<FieldImageGallery> {
         fit: StackFit.expand,
         children: [
           PageView.builder(
-            itemCount: widget.images.length,
+            itemCount: widget.images.isEmpty ? 1 : widget.images.length,
             onPageChanged: (index) {
               setState(() => _currentIndex = index);
             },
             itemBuilder: (context, index) {
-              return Image.network(widget.images[index], fit: BoxFit.cover);
+              if (widget.images.isEmpty) {
+                return const ColoredBox(color: Color(0xFFE2E8F0), child: Center(child: Icon(Icons.sports_tennis, size: 56, color: Color(0xFF64748B))));
+              }
+              return Image.network(widget.images[index], fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFFE2E8F0)));
             },
           ),
           Container(
@@ -59,10 +62,7 @@ class _FieldImageGalleryState extends State<FieldImageGallery> {
             count: widget.images.length,
             currentIndex: _currentIndex,
           ),
-          _ImageCounter(
-            current: _currentIndex + 1,
-            total: widget.images.length,
-          ),
+          if (widget.images.isNotEmpty) _ImageCounter(current: _currentIndex + 1, total: widget.images.length),
         ],
       ),
     );

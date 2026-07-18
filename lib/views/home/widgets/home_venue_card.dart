@@ -80,7 +80,12 @@ class _VenueImageStack extends StatelessWidget {
       children: [
         AspectRatio(
           aspectRatio: 16 / 9,
-          child: Image.network(venue.image, fit: BoxFit.cover),
+          child: venue.image.isEmpty
+              ? const ColoredBox(
+                  color: Color(0xFFE2E8F0),
+                  child: Center(child: Icon(Icons.sports_tennis, color: Color(0xFF64748B), size: 40)),
+                )
+              : Image.network(venue.image, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFFE2E8F0))),
         ),
         // Bottom gradient
         Positioned.fill(

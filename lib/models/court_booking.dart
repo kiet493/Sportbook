@@ -52,6 +52,8 @@ class ManagedVenue {
   final String description;
   final String coordinates;
   final String ownerId;
+  final double rating;
+  final int reviews;
 
   const ManagedVenue({
     required this.id,
@@ -66,6 +68,8 @@ class ManagedVenue {
     required this.description,
     required this.coordinates,
     required this.ownerId,
+    this.rating = 0,
+    this.reviews = 0,
   });
 
   factory ManagedVenue.fromLegacy(Venue venue) {
@@ -82,6 +86,8 @@ class ManagedVenue {
       description: venue.description,
       coordinates: '',
       ownerId: '',
+      rating: venue.rating,
+      reviews: venue.reviews,
     );
   }
 
@@ -98,6 +104,8 @@ class ManagedVenue {
     description: '',
     coordinates: '',
     ownerId: '',
+    rating: 0,
+    reviews: 0,
   );
 
   ManagedVenue copyWith({
@@ -113,6 +121,8 @@ class ManagedVenue {
     String? description,
     String? coordinates,
     String? ownerId,
+    double? rating,
+    int? reviews,
   }) {
     return ManagedVenue(
       id: id ?? this.id,
@@ -127,6 +137,8 @@ class ManagedVenue {
       description: description ?? this.description,
       coordinates: coordinates ?? this.coordinates,
       ownerId: ownerId ?? this.ownerId,
+      rating: rating ?? this.rating,
+      reviews: reviews ?? this.reviews,
     );
   }
 
@@ -148,6 +160,8 @@ class ManagedVenue {
     'active': active,
     'image': image,
     'description': description,
+    'rating': rating,
+    'reviews': reviews,
   };
 
   factory ManagedVenue.fromJson(
@@ -180,6 +194,8 @@ class ManagedVenue {
       description: _readString(json['description']) ?? '',
       coordinates: _readString(json['coordinates']) ?? '',
       ownerId: _readString(json['ownerId']) ?? '',
+      rating: _readDouble(json['rating']) ?? 0,
+      reviews: _readInt(json['reviews']) ?? _readInt(json['reviewCount']) ?? 0,
     );
   }
 }
@@ -497,6 +513,46 @@ int? _readInt(Object? raw) {
   return null;
 }
 
+class CourtSchedule {
+  final String id;
+  final String fieldId;
+  final String dateKey;
+  final Set<int> availableStartMinutes;
+
+  const CourtSchedule({
+    required this.id,
+    required this.fieldId,
+    required this.dateKey,
+    required this.availableStartMinutes,
+  });
+
+  factory CourtSchedule.fromJson(
+    Map<String, dynamic> json, {
+    required String fallbackId,
+  }) {
+    final rawDate = _readDate(json['date']);
+    final savedDateKey = _readString(json['dateKey']);
+    return CourtSchedule(
+      id: _readString(json['_id']) ?? _readString(json['id']) ?? fallbackId,
+      fieldId: _readString(json['fieldId']) ?? '',
+      dateKey: savedDateKey ?? (rawDate == null ? '' : _scheduleDateKey(rawDate)),
+      availableStartMinutes: _readAvailableScheduleSlots(json['timeSlots']),
+    );
+  }
+}
+
+String _scheduleDateKey(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
+}
+
+double? _readDouble(Object? raw) {
+  if (raw is num) return raw.toDouble();
+  if (raw is String) return double.tryParse(raw.trim().replaceAll(',', '.'));
+  return null;
+}
+
 DateTime? _readDate(Object? raw) {
   if (raw == null) return null;
   if (raw is DateTime) return raw;
@@ -526,3 +582,47 @@ int? _minutesFromDate(Object? raw) {
   if (date == null) return null;
   return date.hour * 60 + date.minute;
 }
+
+int? _minutesFromTimeLabel(String value) {
+  final parts = value.trim().split(':');
+  if (parts.length != 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null || hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
+Set<int> _readAvailableScheduleSlots(Object? raw) {
+  if (raw is! List) return _defaultAvailableScheduleSlots();
+  final slots = <int>{};
+  for (final item in raw) {
+    if (item is String) {
+      final start = item.trim().split(RegExp(r'\s*[-–]\s*')).first;
+      final minute = _minutesFromTimeLabel(start);
+      if (minute != null) slots.add(minute);
+      continue;
+    }
+    if (item is Map) {
+      final data = Map<String, dynamic>.from(item);
+      final status = (data['status'] ?? 'available').toString().toLowerCase();
+      if (CourtSlotStatus.activeStatuses.contains(status) ||
+          status == 'unavailable' ||
+          status == 'closed') {
+        continue;
+      }
+      final rawTime =
+          data['time'] ?? data['startTime'] ?? data['start'] ?? data['slot'];
+      if (rawTime is String) {
+        final minute = _minutesFromTimeLabel(
+          rawTime.trim().split(RegExp(r'\s*[-–]\s*')).first,
+        );
+        if (minute != null) slots.add(minute);
+      }
+    }
+  }
+  return slots.isEmpty ? _defaultAvailableScheduleSlots() : slots;
+}
+
+Set<int> _defaultAvailableScheduleSlots() => {
+  for (var minute = 6 * 60; minute < 22 * 60 + 30; minute += 30) minute,
+};

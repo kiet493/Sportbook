@@ -37,6 +37,7 @@ class ProfilePage extends ConsumerWidget {
                 onChangePasswordTap: () => onNav('change-password'),
                 onCommunityTap: () => onNav('events'),
                 onHistoryTap: () => onNav('history'),
+                onTransactionHistoryTap: () => onNav('transactions'),
                 onFavoritesTap: () => onNav('favorites'),
                 onLogout: () async {
                   await ref.read(loginProvider.notifier).logout();

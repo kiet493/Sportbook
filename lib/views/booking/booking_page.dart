@@ -81,8 +81,62 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     return ((current ~/ 30) + 1) * 30;
   }
 
+  Map<String, Set<int>> _availabilityByCourt(
+    List<CourtSchedule> schedules,
+  ) {
+    final result = <String, Set<int>>{};
+    for (final schedule in schedules) {
+      result
+          .putIfAbsent(schedule.fieldId, () => <int>{})
+          .addAll(schedule.availableStartMinutes);
+    }
+    return result;
+  }
+
+  Set<int> get _regularOpeningSlots => {
+    for (
+      var minute = BookingScheduleBoard.startMinute;
+      minute < BookingScheduleBoard.endMinute;
+      minute += BookingScheduleBoard.stepMinute
+    )
+      minute,
+  };
+
+  bool _isSelectionValid(
+    CourtSlotSelection? selection,
+    Map<String, Set<int>> availability,
+  ) {
+    if (selection == null || !selection.court.active) return false;
+    final slots = availability[selection.court.id] ?? _regularOpeningSlots;
+    if (selection.startMinutes < _minimumStartMinutes) {
+      return false;
+    }
+    final end = selection.startMinutes + _durationMinutes;
+    if (end > BookingScheduleBoard.endMinute) return false;
+    for (
+      var minute = selection.startMinutes;
+      minute < end;
+      minute += BookingScheduleBoard.stepMinute
+    ) {
+      if (!slots.contains(minute)) return false;
+    }
+    return true;
+  }
+
   Future<void> _confirmBooking() async {
     if (!_agreed || _selectedSlot == null) return;
+
+    final schedules = ref
+        .read(venueSchedulesProvider(_selectedDateKey))
+        .valueOrNull;
+    if (schedules == null ||
+        !_isSelectionValid(
+          _selectedSlot,
+          _availabilityByCourt(schedules),
+        )) {
+      _showMessage('Khung giờ đã chọn không còn hợp lệ. Vui lòng chọn lại.');
+      return;
+    }
 
     final session = ref.read(sessionProvider);
     if (session == null) {
@@ -108,7 +162,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       totalPrice: _finalTotal,
       participants: _players,
       status: CourtSlotStatus.booked,
-      paymentMethod: '',
+      paymentMethod: 'cash',
       notes: _notesController.text.trim(),
       createdAt: DateTime.now(),
     );
@@ -132,11 +186,12 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   Widget build(BuildContext context) {
     final venueId = widget.venue.firestoreId;
     final courtsAsync = ref.watch(venueCourtsProvider(venueId));
-    final bookingsAsync = ref.watch(
-      venueBookingsProvider(
-        BookingDateQuery(venueId: venueId, dateKey: _selectedDateKey),
-      ),
+    final schedulesAsync = ref.watch(venueSchedulesProvider(_selectedDateKey));
+    final scheduleSlots = _availabilityByCourt(
+      schedulesAsync.valueOrNull ?? const <CourtSchedule>[],
     );
+    final selectionIsValid = _isSelectionValid(_selectedSlot, scheduleSlots);
+    final signedIn = ref.watch(sessionProvider) != null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -176,7 +231,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     maxPlayers: _maxPlayers,
                     onDurationChanged: (value) => setState(() {
                       _duration = value;
-                      _selectedSlot = null;
+                      if (!_isSelectionValid(_selectedSlot, scheduleSlots)) {
+                        _selectedSlot = null;
+                      }
                     }),
                     onPlayersChanged: (value) =>
                         setState(() => _players = value),
@@ -192,12 +249,14 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   ),
                   const SizedBox(height: 16),
                   courtsAsync.when(
-                    data: (courts) => bookingsAsync.when(
-                      data: (bookings) => courts.isEmpty
+                    data: (courts) => schedulesAsync.when(
+                      data: (schedules) => courts.isEmpty
                           ? const _EmptySchedule()
                           : BookingScheduleBoard(
                               courts: courts,
-                              bookings: bookings,
+                              bookings: const <CourtBooking>[],
+                              availableSlotsByCourt:
+                                  _availabilityByCourt(schedules),
                               durationMinutes: _durationMinutes,
                               minimumStartMinutes: _minimumStartMinutes,
                               selection: _selectedSlot,
@@ -208,6 +267,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                                   _players = capacity;
                                 }
                               }),
+                              onUnavailableTap: _showMessage,
                             ),
                       error: (error, _) => const _ErrorBox(
                         message: 'Không tải được lịch đặt sân.',
@@ -249,7 +309,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             bottom: 0,
             child: BookingBottomBar(
               finalTotal: _finalTotal,
-              enabled: _agreed && _selectedSlot != null,
+              enabled:
+                  signedIn && _agreed && _selectedSlot != null && selectionIsValid,
               isLoading: _isLoading,
               onConfirm: _confirmBooking,
             ),

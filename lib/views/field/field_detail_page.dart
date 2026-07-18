@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../models/court_booking.dart';
 import '../../models/venue.dart';
 import '../../providers/booking_providers.dart';
+import '../../providers/firebase_providers.dart';
 import 'widgets/widgets.dart';
 
 class FieldDetailPage extends ConsumerStatefulWidget {
@@ -28,13 +30,26 @@ class FieldDetailPage extends ConsumerStatefulWidget {
 }
 
 class _FieldDetailPageState extends ConsumerState<FieldDetailPage> {
-  bool _isFav = false;
   String _selectedDate = "Hôm nay";
   String? _selectedSlot;
-  final List<String> _dates = ["Hôm nay", "Ngày mai", "T5, 10/7", "T6, 11/7", "T7, 12/7"];
+  final List<String> _dates = const [];
+
+  Future<void> _toggleFavorite() async {
+    final message = await ref
+        .read(favoriteToggleProvider.notifier)
+        .toggle(widget.venue.firestoreId);
+    if (!mounted || message == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
+    final firebaseUser = ref.watch(firebaseAuthStateProvider).valueOrNull;
+    final favoriteIds = firebaseUser == null
+        ? const <String>{}
+        : ref.watch(favoriteVenueIdsProvider(firebaseUser.uid)).valueOrNull ??
+            const <String>{};
+    final isFavorite = favoriteIds.contains(widget.venue.firestoreId);
     final similarVenues = ref
             .watch(publicVenuesProvider)
             .valueOrNull
@@ -42,6 +57,15 @@ class _FieldDetailPageState extends ConsumerState<FieldDetailPage> {
             .take(3)
             .toList(growable: false) ??
         const <Venue>[];
+    final AsyncValue<List<SportCourt>> courtsAsync = ref.watch(
+      venueCourtsProvider(widget.venue.firestoreId),
+    );
+    final List<SportCourt> courts =
+        courtsAsync.valueOrNull ?? const <SportCourt>[];
+    final List<String> amenities = courts
+        .expand<String>((court) => court.amenities)
+        .toSet()
+        .toList(growable: false);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -57,8 +81,8 @@ class _FieldDetailPageState extends ConsumerState<FieldDetailPage> {
                     images: widget.venue.images,
                     onBack: widget.onBack,
                     onShare: () {},
-                    onFavorite: () => setState(() => _isFav = !_isFav),
-                    isFavorite: _isFav,
+                    onFavorite: _toggleFavorite,
+                    isFavorite: isFavorite,
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -81,14 +105,7 @@ class _FieldDetailPageState extends ConsumerState<FieldDetailPage> {
                         const SizedBox(height: 16),
                         _buildDescriptionSection(),
                         const SizedBox(height: 20),
-                        _buildAmenitiesSection(),
-                        const SizedBox(height: 20),
-                        _buildTimeSlotsSection(),
-                        const SizedBox(height: 20),
-                        FieldReviewsSection(
-                          reviews: FIELD_REVIEWS,
-                          onViewAll: () {},
-                        ),
+                        if (amenities.isNotEmpty) _buildAmenitiesSection(amenities),
                         const SizedBox(height: 20),
                         if (similarVenues.isNotEmpty)
                           FieldSimilarVenues(
@@ -212,7 +229,7 @@ class _FieldDetailPageState extends ConsumerState<FieldDetailPage> {
     );
   }
 
-  Widget _buildAmenitiesSection() {
+  Widget _buildAmenitiesSection(List<String> amenities) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -225,7 +242,7 @@ class _FieldDetailPageState extends ConsumerState<FieldDetailPage> {
           ),
         ),
         const SizedBox(height: 12),
-        FieldAmenitiesGrid(facilities: FACILITIES),
+        FieldAmenitiesGrid(amenities: amenities),
       ],
     );
   }
@@ -245,7 +262,7 @@ class _FieldDetailPageState extends ConsumerState<FieldDetailPage> {
         const SizedBox(height: 10),
         FieldTimeSlotPicker(
           dates: _dates,
-          timeSlots: TIME_SLOTS,
+          timeSlots: const <TimeSlot>[],
           selectedDate: _selectedDate,
           selectedSlot: _selectedSlot,
           onDateSelected: (d) => setState(() => _selectedDate = d),

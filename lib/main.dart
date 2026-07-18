@@ -35,6 +35,8 @@ import 'views/booking/booking_page.dart';
 import 'views/booking/booking_success_page.dart';
 import 'views/booking/booking_history_page.dart';
 import 'views/booking/booking_detail_page.dart';
+import 'views/payment/payment_page.dart';
+import 'views/payment/transaction_history_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -375,10 +377,23 @@ class _AppControllerState extends ConsumerState<AppController> {
                         booking,
                         venue: venue,
                       );
-                      _screen = 'success';
+                      _screen = 'payment';
                     });
                   },
                 );
+          break;
+        case "payment":
+          final booking = _lastCreatedBooking;
+          activeWidget = booking == null
+              ? HomePage(onVenueTap: _goVenue, onNav: _goScreen, activeNav: "home")
+              : PaymentPage(
+                  booking: booking,
+                  onBack: () => _goScreen('booking'),
+                  onPaid: (_) => _goScreen('success'),
+                );
+          break;
+        case "transactions":
+          activeWidget = TransactionHistoryPage(onBack: () => _goScreen('profile'));
           break;
         case "success":
           final venue = _selectedVenue;

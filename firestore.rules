@@ -114,7 +114,10 @@ service cloud.firestore {
           <= selectedCourt(request.resource.data.fieldId).capacity
         && selectedCourt(request.resource.data.fieldId).complexId
           == request.resource.data.venueId
-        && selectedCourt(request.resource.data.fieldId).status == 'active'
+        && (
+          selectedCourt(request.resource.data.fieldId).status == 'active'
+          || selectedCourt(request.resource.data.fieldId).active == true
+        )
         && request.resource.data.totalPrice is int
         && request.resource.data.totalPrice >= 0;
       allow update: if isAdmin()
@@ -122,11 +125,20 @@ service cloud.firestore {
           signedIn()
           && resource.data.userId == request.auth.uid
           && request.resource.data.userId == resource.data.userId
-          && request.resource.data.status == 'cancelled'
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'status',
-            'updatedAt'
-          ])
+          && (
+            (request.resource.data.status == 'cancelled'
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'status',
+                'updatedAt'
+              ]))
+            || (request.resource.data.paymentStatus == 'paid'
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'paymentStatus',
+                'paymentMethod',
+                'paymentId',
+                'updatedAt'
+              ]))
+          )
         );
       allow delete: if isAdmin();
     }
@@ -162,9 +174,58 @@ service cloud.firestore {
         );
     }
 
+    match /favorites/{favoriteId} {
+      // A transaction must be allowed to read the deterministic document ID
+      // before it creates a new favorite. `resource.data` is unavailable for
+      // a document that does not exist yet, so `allow read` cannot be shared
+      // with the list rule below.
+      allow get: if signedIn()
+        && favoriteId.matches('^' + request.auth.uid + '_[^/]+$');
+      allow list: if signedIn()
+        && resource.data.userId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.venueId is string
+        && favoriteId == request.auth.uid + '_' + request.resource.data.venueId;
+      allow delete: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && favoriteId == request.auth.uid + '_' + resource.data.venueId;
+      allow update: if false;
+    }
+
+    match /coupons/{couponId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
     match /events/{eventId} {
       allow read: if signedIn();
-      allow create, delete: if isAdmin();
+      allow create: if isAdmin()
+        || (
+          signedIn()
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.status == 'open'
+          && request.resource.data.maxPlayers is int
+          && request.resource.data.minPlayers is int
+          && request.resource.data.minPlayers > 0
+          && request.resource.data.maxPlayers >= request.resource.data.minPlayers
+          && request.resource.data.availableSlots is int
+          && request.resource.data.availableSlots >= 0
+          && request.resource.data.availableSlots < request.resource.data.maxPlayers
+        );
+      allow delete: if isAdmin();
       allow update: if isAdmin()
         || (
           signedIn()
@@ -178,6 +239,19 @@ service cloud.firestore {
           && eventRegistrationAfter(eventId, request.auth.uid).eventId == eventId
           && eventRegistrationAfter(eventId, request.auth.uid).userId
             == request.auth.uid
+          || (
+            resource.data.createdBy == request.auth.uid
+            && request.resource.data.createdBy == resource.data.createdBy
+            && (
+              request.resource.data.status == resource.data.status
+              || request.resource.data.status == 'cancelled'
+            )
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'name', 'title', 'description', 'deadline', 'playerLevel',
+              'playStyle', 'teamPreference', 'minPlayers', 'maxPlayers',
+              'status', 'updatedAt'
+            ])
+          )
         );
     }
 

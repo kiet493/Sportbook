@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../models/venue.dart';
 
 class FieldAmenitiesGrid extends StatelessWidget {
-  final List<FacilityInfo> facilities;
+  final List<String> amenities;
 
   const FieldAmenitiesGrid({
     super.key,
-    required this.facilities,
+    required this.amenities,
   });
 
   @override
@@ -22,9 +21,9 @@ class FieldAmenitiesGrid extends StatelessWidget {
         mainAxisSpacing: 8,
         childAspectRatio: 1.1,
       ),
-      itemCount: facilities.length,
+      itemCount: amenities.length,
       itemBuilder: (context, index) {
-        final f = facilities[index];
+        final amenity = amenities[index];
         return Container(
           decoration: BoxDecoration(
             color: AppColors.surface,
@@ -48,14 +47,14 @@ class FieldAmenitiesGrid extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  f.icon,
+                  Icons.check_circle_outline,
                   color: AppColors.primary,
                   size: 16,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
-                f.label,
+                amenity,
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,

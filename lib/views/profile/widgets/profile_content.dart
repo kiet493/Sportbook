@@ -8,6 +8,7 @@ import 'profile_user_card.dart';
 class ProfileContent extends StatelessWidget {
   final UserModel? user;
   final VoidCallback onHistoryTap;
+  final VoidCallback onTransactionHistoryTap;
   final VoidCallback onEditProfileTap;
   final VoidCallback onChangePasswordTap;
   final VoidCallback onCommunityTap;
@@ -20,6 +21,7 @@ class ProfileContent extends StatelessWidget {
     super.key,
     required this.user,
     required this.onHistoryTap,
+    required this.onTransactionHistoryTap,
     required this.onEditProfileTap,
     required this.onChangePasswordTap,
     required this.onCommunityTap,
@@ -48,6 +50,11 @@ class ProfileContent extends StatelessWidget {
           ProfileMenuButton(
             label: "L\u1ecbch s\u1eed \u0111\u1eb7t s\u00e2n",
             onTap: onHistoryTap,
+          ),
+          const SizedBox(height: 12),
+          ProfileMenuButton(
+            label: "L\u1ecbch s\u1eed thanh to\u00e1n",
+            onTap: onTransactionHistoryTap,
           ),
           const SizedBox(height: 12),
           ProfileMenuButton(

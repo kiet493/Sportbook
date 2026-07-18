@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../models/community_models.dart';
 
@@ -25,27 +26,33 @@ class CommunityFirestoreService {
   CollectionReference<Map<String, dynamic>> get _members =>
       _db.collection('matchmaking_members');
 
-  Stream<List<SportEvent>> watchEvents() => _events.snapshots().map((snapshot) {
-    final items = snapshot.docs
-        .map((doc) => SportEvent.fromJson(doc.data(), fallbackId: doc.id))
-        .where((event) => event.active)
-        .toList();
-    items.sort((a, b) => a.startAt.compareTo(b.startAt));
-    return items;
-  });
+  Stream<List<SportEvent>> watchEvents() {
+    debugPrint('Event query path: ${_events.path}');
+    return _events.snapshots().map((snapshot) {
+      final now = DateTime.now();
+      final items = snapshot.docs
+          .map((doc) => SportEvent.fromJson(doc.data(), fallbackId: doc.id))
+          .where((event) => event.active && event.endAt.isAfter(now))
+          .toList();
+      items.sort((a, b) => a.startAt.compareTo(b.startAt));
+      return items;
+    });
+  }
 
-  Stream<List<MatchmakingRoom>> watchRooms() => _rooms.snapshots().map((
-    snapshot,
-  ) {
+  Stream<List<MatchmakingRoom>> watchRooms() {
+    debugPrint('Matchmaking query path: ${_rooms.path}');
+    return _rooms.snapshots().map((snapshot) {
     final items = snapshot.docs
         .map((doc) => MatchmakingRoom.fromJson(doc.data(), fallbackId: doc.id))
         .toList();
     items.sort((a, b) => a.playAt.compareTo(b.playAt));
     return items;
-  });
+    });
+  }
 
-  Stream<List<MatchmakingMember>> watchMembers(String roomId) =>
-      _members.where('roomId', isEqualTo: roomId).snapshots().map((snapshot) {
+  Stream<List<MatchmakingMember>> watchMembers(String roomId) {
+    debugPrint('Matchmaking members query path: ${_members.path}, roomId: $roomId');
+    return _members.where('roomId', isEqualTo: roomId).snapshots().map((snapshot) {
         final items = snapshot.docs
             .map(
               (doc) =>
@@ -54,13 +61,15 @@ class CommunityFirestoreService {
             .toList();
         items.sort((a, b) => a.joinedAt.compareTo(b.joinedAt));
         return items;
-      });
+    });
+  }
 
   Future<void> registerEvent(EventRegistration registration) async {
     final registrationId = '${registration.eventId}_${registration.userId}';
     final eventRef = _events.doc(registration.eventId);
     final registrationRef = _registrations.doc(registrationId);
     await _db.runTransaction((transaction) async {
+      debugPrint('Event ID: ${registration.eventId}');
       final eventSnapshot = await transaction.get(eventRef);
       final eventData = eventSnapshot.data();
       if (!eventSnapshot.exists || eventData == null) {
@@ -123,6 +132,7 @@ class CommunityFirestoreService {
     final memberId = '${member.roomId}_${member.userId}';
     final memberRef = _members.doc(memberId);
     await _db.runTransaction((transaction) async {
+      debugPrint('Matchmaking room ID: ${member.roomId}');
       final roomSnapshot = await transaction.get(roomRef);
       final roomData = roomSnapshot.data();
       if (!roomSnapshot.exists || roomData == null) {
