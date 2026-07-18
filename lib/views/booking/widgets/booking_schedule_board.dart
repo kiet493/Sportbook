@@ -5,19 +5,23 @@ import '../../../models/court_booking.dart';
 class BookingScheduleBoard extends StatelessWidget {
   final List<SportCourt> courts;
   final List<CourtBooking> bookings;
+  final Map<String, Set<int>> availableSlotsByCourt;
   final int durationMinutes;
   final int minimumStartMinutes;
   final CourtSlotSelection? selection;
   final ValueChanged<CourtSlotSelection> onSelected;
+  final ValueChanged<String> onUnavailableTap;
 
   const BookingScheduleBoard({
     super.key,
     required this.courts,
     required this.bookings,
+    required this.availableSlotsByCourt,
     required this.durationMinutes,
     required this.minimumStartMinutes,
     required this.selection,
     required this.onSelected,
+    required this.onUnavailableTap,
   });
 
   static const int startMinute = 6 * 60;
@@ -59,10 +63,16 @@ class BookingScheduleBoard extends StatelessWidget {
                     court: court,
                     slots: slots,
                     bookings: bookings,
+                    // A missing schedule document means the court follows its
+                    // regular opening grid. Explicit schedule slots still take
+                    // precedence whenever Firestore provides them.
+                    availableSlots:
+                        availableSlotsByCourt[court.id] ?? slots.toSet(),
                     durationMinutes: durationMinutes,
                     minimumStartMinutes: minimumStartMinutes,
                     selection: selection,
                     onSelected: onSelected,
+                    onUnavailableTap: onUnavailableTap,
                   ),
                 ),
               ],
@@ -163,19 +173,23 @@ class _CourtRow extends StatelessWidget {
   final SportCourt court;
   final List<int> slots;
   final List<CourtBooking> bookings;
+  final Set<int> availableSlots;
   final int durationMinutes;
   final int minimumStartMinutes;
   final CourtSlotSelection? selection;
   final ValueChanged<CourtSlotSelection> onSelected;
+  final ValueChanged<String> onUnavailableTap;
 
   const _CourtRow({
     required this.court,
     required this.slots,
     required this.bookings,
+    required this.availableSlots,
     required this.durationMinutes,
     required this.minimumStartMinutes,
     required this.selection,
     required this.onSelected,
+    required this.onUnavailableTap,
   });
 
   @override
@@ -209,12 +223,15 @@ class _CourtRow extends StatelessWidget {
             court: court,
             minute: minute,
             bookings: bookings,
+            availableSlots: availableSlots,
             durationMinutes: durationMinutes,
             minimumStartMinutes: minimumStartMinutes,
             selected:
                 selection?.court.id == court.id &&
-                selection?.startMinutes == minute,
+                minute >= (selection?.startMinutes ?? -1) &&
+                minute < (selection?.startMinutes ?? -1) + durationMinutes,
             onSelected: onSelected,
+            onUnavailableTap: onUnavailableTap,
           ),
         ),
       ],
@@ -226,19 +243,23 @@ class _SlotCell extends StatelessWidget {
   final SportCourt court;
   final int minute;
   final List<CourtBooking> bookings;
+  final Set<int> availableSlots;
   final int durationMinutes;
   final int minimumStartMinutes;
   final bool selected;
   final ValueChanged<CourtSlotSelection> onSelected;
+  final ValueChanged<String> onUnavailableTap;
 
   const _SlotCell({
     required this.court,
     required this.minute,
     required this.bookings,
+    required this.availableSlots,
     required this.durationMinutes,
     required this.minimumStartMinutes,
     required this.selected,
     required this.onSelected,
+    required this.onUnavailableTap,
   });
 
   @override
@@ -261,13 +282,17 @@ class _SlotCell extends StatelessWidget {
 
     final canSelect =
         court.active &&
+        availableSlots.contains(minute) &&
         minute >= minimumStartMinutes &&
         blocking == null &&
         minute + durationMinutes <= BookingScheduleBoard.endMinute &&
+        _hasWholeDurationAvailable() &&
         !_selectionWouldOverlap();
 
     final bgColor = !court.active
         ? const Color(0xFF9CA3AF)
+        : !availableSlots.contains(minute)
+        ? const Color(0xFFE5E7EB)
         : minute < minimumStartMinutes
         ? const Color(0xFFE5E7EB)
         : blocking != null
@@ -276,13 +301,29 @@ class _SlotCell extends StatelessWidget {
         ? const Color(0xFFBBF7D0)
         : Colors.white;
 
-    return InkWell(
-      onTap: canSelect
-          ? () => onSelected(
-              CourtSlotSelection(court: court, startMinutes: minute),
-            )
-          : null,
-      child: Container(
+    final unavailableMessage = !court.active
+        ? 'Sân này hiện không hoạt động.'
+        : !availableSlots.contains(minute)
+        ? 'Khung giờ này không còn trống.'
+        : minute < minimumStartMinutes
+        ? 'Không thể đặt khung giờ đã qua.'
+        : minute + durationMinutes > BookingScheduleBoard.endMinute
+        ? 'Thời lượng đã chọn vượt quá giờ đóng cửa.'
+        : !_hasWholeDurationAvailable()
+        ? 'Không đủ các khung 30 phút liên tiếp cho thời lượng đã chọn.'
+        : 'Khung giờ này đã được đặt.';
+
+    return MouseRegion(
+      cursor: canSelect ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
+      child: InkWell(
+        onTap: () {
+          if (canSelect) {
+            onSelected(CourtSlotSelection(court: court, startMinutes: minute));
+          } else {
+            onUnavailableTap(unavailableMessage);
+          }
+        },
+        child: Container(
         width: BookingScheduleBoard.cellWidth,
         height: BookingScheduleBoard.rowHeight,
         decoration: BoxDecoration(
@@ -297,6 +338,7 @@ class _SlotCell extends StatelessWidget {
             : selected
             ? const Icon(Icons.check, color: Color(0xFF047857), size: 18)
             : null,
+        ),
       ),
     );
   }
@@ -317,5 +359,16 @@ class _SlotCell extends StatelessWidget {
         booking.endMinutes,
       );
     });
+  }
+
+  bool _hasWholeDurationAvailable() {
+    for (
+      var slot = minute;
+      slot < minute + durationMinutes;
+      slot += BookingScheduleBoard.stepMinute
+    ) {
+      if (!availableSlots.contains(slot)) return false;
+    }
+    return true;
   }
 }

@@ -1,8 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/court_booking.dart';
 import '../models/venue.dart';
 import '../services/Firebase/booking_firestore_service.dart';
+import 'firebase_providers.dart';
 import 'registration_providers.dart';
 
 final bookingFirestoreServiceProvider = Provider<BookingFirestoreService>((
@@ -12,6 +15,12 @@ final bookingFirestoreServiceProvider = Provider<BookingFirestoreService>((
 });
 
 final managedVenuesProvider = StreamProvider<List<ManagedVenue>>((ref) {
+  final auth = ref.watch(firebaseAuthStateProvider);
+  if (auth.isLoading) return const Stream<List<ManagedVenue>>.empty();
+  if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
+  if (auth.valueOrNull == null) {
+    return Stream.error(const FirebaseAuthRequiredException());
+  }
   return ref.watch(bookingFirestoreServiceProvider).watchVenues();
 });
 
@@ -19,14 +28,96 @@ final venueCourtsProvider = StreamProvider.family<List<SportCourt>, String>((
   ref,
   venueId,
 ) {
+  final auth = ref.watch(firebaseAuthStateProvider);
+  if (auth.isLoading) return const Stream<List<SportCourt>>.empty();
+  if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
+  if (auth.valueOrNull == null) return Stream.error(const FirebaseAuthRequiredException());
   return ref.watch(bookingFirestoreServiceProvider).watchCourts(venueId);
 });
 
 final allSportCourtsProvider = StreamProvider<List<SportCourt>>((ref) {
+  final auth = ref.watch(firebaseAuthStateProvider);
+  if (auth.isLoading) return const Stream<List<SportCourt>>.empty();
+  if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
+  if (auth.valueOrNull == null) return Stream.error(const FirebaseAuthRequiredException());
   return ref.watch(bookingFirestoreServiceProvider).watchAllCourts();
 });
 
+final venueSchedulesProvider =
+    StreamProvider.family<List<CourtSchedule>, String>((ref, selectedDateKey) {
+      final auth = ref.watch(firebaseAuthStateProvider);
+      if (auth.isLoading) return const Stream<List<CourtSchedule>>.empty();
+      if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
+      if (auth.valueOrNull == null) {
+        return Stream.error(const FirebaseAuthRequiredException());
+      }
+      return ref
+          .watch(bookingFirestoreServiceProvider)
+          .watchSchedulesForDate(selectedDateKey);
+    });
+
+final favoriteVenueIdsProvider = StreamProvider.family<Set<String>, String>((ref, userId) {
+  final auth = ref.watch(firebaseAuthStateProvider);
+  if (auth.isLoading) return const Stream<Set<String>>.empty();
+  if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
+  if (auth.valueOrNull?.uid != userId) return Stream.error(const FirebaseAuthRequiredException());
+  return ref.watch(bookingFirestoreServiceProvider).watchFavoriteVenueIds(userId);
+});
+
+class FavoriteToggleNotifier extends AsyncNotifier<void> {
+  @override
+  void build() {}
+
+  Future<String?> toggle(String venueId) async {
+    final firebaseUser = ref.read(firebaseAuthStateProvider).valueOrNull;
+    if (firebaseUser == null) {
+      return 'Vui lòng đăng nhập để lưu sân yêu thích.';
+    }
+    if (venueId.trim().isEmpty) {
+      return 'Không xác định được sân cần yêu thích.';
+    }
+
+    state = const AsyncLoading();
+    try {
+      await ref.read(bookingFirestoreServiceProvider).toggleFavorite(
+            userId: firebaseUser.uid,
+            venueId: venueId,
+          );
+      ref.invalidate(favoriteVenueIdsProvider(firebaseUser.uid));
+      state = const AsyncData(null);
+      return null;
+    } on FirebaseException catch (error, stackTrace) {
+      debugPrint('Favorite error code: ${error.code}');
+      debugPrint('Favorite error message: ${error.message}');
+      debugPrintStack(stackTrace: stackTrace);
+      state = AsyncError(error, stackTrace);
+      return switch (error.code) {
+        'permission-denied' => 'Bạn không có quyền thay đổi danh sách yêu thích.',
+        'unavailable' => 'Không thể kết nối Firebase. Vui lòng thử lại.',
+        'unauthenticated' => 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+        _ => error.message ?? 'Không thể cập nhật sân yêu thích.',
+      };
+    } catch (error, stackTrace) {
+      debugPrint('Favorite error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      state = AsyncError(error, stackTrace);
+      return 'Không thể cập nhật sân yêu thích.';
+    }
+  }
+}
+
+final favoriteToggleProvider =
+    AsyncNotifierProvider<FavoriteToggleNotifier, void>(
+  FavoriteToggleNotifier.new,
+);
+
 final publicVenuesProvider = Provider<AsyncValue<List<Venue>>>((ref) {
+  final auth = ref.watch(firebaseAuthStateProvider);
+  if (auth.isLoading) return const AsyncLoading();
+  if (auth.hasError) return AsyncError(auth.error!, auth.stackTrace ?? StackTrace.current);
+  if (auth.valueOrNull == null) {
+    return AsyncError(const FirebaseAuthRequiredException(), StackTrace.current);
+  }
   final venuesAsync = ref.watch(managedVenuesProvider);
   final courtsAsync = ref.watch(allSportCourtsProvider);
 
@@ -69,6 +160,10 @@ class BookingDateQuery {
 
 final venueBookingsProvider =
     StreamProvider.family<List<CourtBooking>, BookingDateQuery>((ref, query) {
+      final auth = ref.watch(firebaseAuthStateProvider);
+      if (auth.isLoading) return const Stream<List<CourtBooking>>.empty();
+      if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
+      if (auth.valueOrNull == null) return Stream.error(const FirebaseAuthRequiredException());
       return ref
           .watch(bookingFirestoreServiceProvider)
           .watchBookings(venueId: query.venueId, date: query.dateKey);
@@ -76,12 +171,20 @@ final venueBookingsProvider =
 
 final userBookingsProvider =
     StreamProvider.family<List<CourtBooking>, String>((ref, userId) {
+      final auth = ref.watch(firebaseAuthStateProvider);
+      if (auth.isLoading) return const Stream<List<CourtBooking>>.empty();
+      if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
+      if (auth.valueOrNull?.uid != userId) return Stream.error(const FirebaseAuthRequiredException());
       return ref
           .watch(bookingFirestoreServiceProvider)
           .watchUserBookings(userId);
     });
 
 final adminBookingsProvider = StreamProvider<List<CourtBooking>>((ref) {
+  final auth = ref.watch(firebaseAuthStateProvider);
+  if (auth.isLoading) return const Stream<List<CourtBooking>>.empty();
+  if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
+  if (auth.valueOrNull == null) return Stream.error(const FirebaseAuthRequiredException());
   return ref.watch(bookingFirestoreServiceProvider).watchAllBookings();
 });
 
@@ -132,9 +235,15 @@ class BookingSubmitNotifier extends AsyncNotifier<CourtBooking?> {
     } on SlotAlreadyBookedException {
       state = const AsyncData(null);
       return 'Khung gio nay vua co nguoi dat. Vui long chon khung khac.';
-    } catch (e, st) {
-      state = AsyncError(e, st);
-      return 'Khong the dat san luc nay, vui long thu lai.';
+    } catch (error, stackTrace) {
+      debugPrint('Booking error type: ${error.runtimeType}');
+      debugPrint('Booking error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      state = AsyncError(error, stackTrace);
+      if (error is FirebaseException && error.code == 'permission-denied') {
+        return 'Không có quyền tạo booking trên Firebase. Vui lòng kiểm tra Firestore Rules collection bookings.';
+      }
+      return 'Không thể đặt sân lúc này, vui lòng thử lại.';
     }
   }
 }
@@ -186,8 +295,8 @@ BookingInfo bookingInfoFromCourtBooking(
         price: '',
         priceNum: 0,
         available: true,
-        image: _fallbackVenueImage,
-        images: const [_fallbackVenueImage],
+        image: '',
+        images: const [],
         address: '',
         description: '',
       );
@@ -244,7 +353,7 @@ List<Venue> _toPublicVenues(List<ManagedVenue> venues, List<SportCourt> courts) 
         final images = venue.images.isNotEmpty
             ? venue.images
             : (venue.image.isEmpty ? <String>[] : <String>[venue.image]);
-        final image = images.isNotEmpty ? images.first : _fallbackVenueImage;
+        final image = images.isNotEmpty ? images.first : '';
 
         return [
           Venue(
@@ -252,15 +361,15 @@ List<Venue> _toPublicVenues(List<ManagedVenue> venues, List<SportCourt> courts) 
             firestoreId: venue.id,
             name: venue.name,
             sport: const ['Cầu lông'],
-            distance: 'Đang cập nhật',
-            rating: 4.8,
-            reviews: 0,
+            distance: '',
+            rating: venue.rating,
+            reviews: venue.reviews,
             hours: venue.hours,
             price: '${_formatVnd(price)}/h',
             priceNum: price,
             available: venue.active,
             image: image,
-            images: images.isEmpty ? <String>[image] : images,
+            images: images,
             address: venue.address,
             description: venue.description,
           ),
@@ -295,6 +404,3 @@ bool _isBadmintonSport(String value) {
       normalized.contains('cau long') ||
       normalized.contains('badminton');
 }
-
-const _fallbackVenueImage =
-    'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&h=500&fit=crop&auto=format';

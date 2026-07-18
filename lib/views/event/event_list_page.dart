@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/community_models.dart';
 import '../../providers/community_providers.dart';
+import '../../providers/firebase_providers.dart';
 
 class EventListPage extends ConsumerWidget {
   final VoidCallback onBack;
@@ -44,7 +45,7 @@ class EventListPage extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => _MessageList(
             icon: Icons.cloud_off,
-            text: 'Không thể tải sự kiện.\n$error',
+            text: _eventLoadError(error),
           ),
           data: (items) => items.isEmpty
               ? const _MessageList(
@@ -65,6 +66,21 @@ class EventListPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _eventLoadError(Object error) {
+  if (error is FirebaseAuthRequiredException) return error.toString();
+  final value = error.toString();
+  if (value.contains('permission-denied')) {
+    return 'Bạn không có quyền xem sự kiện. Vui lòng kiểm tra Firestore Rules.';
+  }
+  if (value.contains('unavailable')) {
+    return 'Không thể kết nối Firebase. Vui lòng thử lại.';
+  }
+  if (value.contains('failed-precondition')) {
+    return 'Thiếu Firestore index cho truy vấn sự kiện.';
+  }
+  return 'Không thể tải sự kiện.\n$value';
 }
 
 class _EventCard extends StatelessWidget {

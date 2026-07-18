@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/widgets/bottom_nav.dart';
 import '../../models/venue.dart';
 import '../../providers/booking_providers.dart';
+import '../../providers/firebase_providers.dart';
 import '../../providers/registration_providers.dart';
+import '../../core/utils/venue_filter.dart';
 import 'widgets/widgets.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -26,16 +28,12 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   String _activeFeature = 'Sân trong nhà';
   String _activeFilter = 'Tất cả';
-  final Set<int> _favorites = {2};
-
-  void _toggleFavorite(int venueId) {
-    setState(() {
-      if (_favorites.contains(venueId)) {
-        _favorites.remove(venueId);
-      } else {
-        _favorites.add(venueId);
-      }
-    });
+  Future<void> _toggleFavorite(Venue venue) async {
+    final message = await ref
+        .read(favoriteToggleProvider.notifier)
+        .toggle(venue.firestoreId);
+    if (!mounted || message == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -45,6 +43,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     final address = user?.address.trim();
     final avatarUrl = user?.avatarUrl.trim();
     final venuesAsync = ref.watch(publicVenuesProvider);
+    final firebaseUser = ref.watch(firebaseAuthStateProvider).valueOrNull;
+    final favoriteIds = firebaseUser == null
+        ? const <String>{}
+        : ref.watch(favoriteVenueIdsProvider(firebaseUser.uid)).valueOrNull ??
+            const <String>{};
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
@@ -69,33 +72,33 @@ class _HomePageState extends ConsumerState<HomePage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     HomeSearchBar(onTap: () => widget.onNav('search')),
-                    HomeSportsSection(
-                      categories: BADMINTON_FEATURES,
-                      activeSport: _activeFeature,
-                      onSportSelected: (feature) =>
-                          setState(() => _activeFeature = feature),
-                      onSeeMore: () => widget.onNav('search'),
-                    ),
-                    HomeBannerCarousel(banners: BANNERS),
-                    const SizedBox(height: 8),
                     HomeQuickFilters(
-                      filters: QUICK_FILTERS,
+                      filters: const [
+                        'Tất cả',
+                        'Gần nhất',
+                        'Giá thấp',
+                        'Đánh giá cao',
+                        'Mở ngay',
+                      ],
                       activeFilter: _activeFilter,
                       onFilterSelected: (filter) =>
                           setState(() => _activeFilter = filter),
                     ),
                     venuesAsync.when(
-                      data: (venues) => venues.isEmpty
+                      data: (venues) {
+                        final filtered = filterVenues(venues, _homeFilter);
+                        return filtered.isEmpty
                           ? const _HomeVenuesMessage(
                               message:
-                                  'Chưa có dữ liệu sân trên Firebase. Hãy chạy seed data.',
+                                  'Chưa có dữ liệu sân trên Firebase.',
                             )
                           : HomeNearbySection(
-                              venues: venues,
-                              favorites: _favorites,
+                              venues: filtered,
+                              favorites: filtered.where((venue) => favoriteIds.contains(venue.firestoreId)).map((venue) => venue.id).toSet(),
                               onVenueTap: widget.onVenueTap,
                               onToggleFavorite: _toggleFavorite,
-                            ),
+                            );
+                      },
                       error: (error, _) => _HomeVenuesMessage(
                         message: 'Không tải được dữ liệu sân: $error',
                       ),
@@ -116,6 +119,28 @@ class _HomePageState extends ConsumerState<HomePage> {
         onNav: widget.onNav,
       ),
     );
+  }
+
+  VenueFilter get _homeFilter {
+    final index = const [
+      'Tất cả',
+      'Gần nhất',
+      'Giá thấp',
+      'Đánh giá cao',
+      'Mở ngay',
+    ].indexOf(_activeFilter);
+    switch (index) {
+      case 1:
+        return const VenueFilter(sort: 'Gần nhất');
+      case 2:
+        return const VenueFilter(sort: 'Giá thấp nhất');
+      case 3:
+        return const VenueFilter(sort: 'Đánh giá cao');
+      case 4:
+        return const VenueFilter(onlyAvailable: true);
+      default:
+        return const VenueFilter();
+    }
   }
 }
 

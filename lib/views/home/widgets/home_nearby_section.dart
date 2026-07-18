@@ -9,7 +9,7 @@ class HomeNearbySection extends StatelessWidget {
   final List<Venue> venues;
   final Set<int> favorites;
   final ValueChanged<Venue> onVenueTap;
-  final ValueChanged<int> onToggleFavorite;
+  final ValueChanged<Venue> onToggleFavorite;
 
   const HomeNearbySection({
     super.key,
@@ -60,7 +60,7 @@ class HomeNearbySection extends StatelessWidget {
               isFavorite: favorites.contains(venue.id),
               onTap: () => onVenueTap(venue),
               onBook: () => onVenueTap(venue),
-              onFavoriteTap: () => onToggleFavorite(venue.id),
+              onFavoriteTap: () => onToggleFavorite(venue),
             );
           },
         ),

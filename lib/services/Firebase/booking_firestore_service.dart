@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../models/court_booking.dart';
 
@@ -68,6 +70,52 @@ class BookingFirestoreService {
         toFirestore: (data, _) => data,
       );
 
+  CollectionReference<Map<String, dynamic>> get _favoritesRef => _db
+      .collection('favorites')
+      .withConverter<Map<String, dynamic>>(
+        fromFirestore: (snap, _) => snap.data() ?? <String, dynamic>{},
+        toFirestore: (data, _) => data,
+      );
+
+  Stream<Set<String>> watchFavoriteVenueIds(String userId) => _favoritesRef
+      .where('userId', isEqualTo: userId)
+      .snapshots()
+      .map((snap) => snap.docs.map((doc) => doc.data()['venueId']?.toString() ?? '').where((id) => id.isNotEmpty).toSet());
+
+  Future<void> toggleFavorite({required String userId, required String venueId}) async {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null || firebaseUser.uid != userId) {
+      throw FirebaseException(
+        plugin: 'firebase_auth',
+        code: 'unauthenticated',
+        message: 'Firebase Auth chưa có phiên hợp lệ.',
+      );
+    }
+    final doc = _favoritesRef.doc('${userId}_$venueId');
+    debugPrint('Current UID: ${firebaseUser.uid}');
+    debugPrint('Favorite field ID: $venueId');
+    debugPrint('Favorite document path: ${doc.path}');
+    try {
+      await _db.runTransaction((transaction) async {
+        final current = await transaction.get(doc);
+        if (current.exists) {
+          transaction.delete(doc);
+        } else {
+          transaction.set(doc, {
+            'userId': userId,
+            'venueId': venueId,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
+      });
+    } on FirebaseException catch (error, stackTrace) {
+      debugPrint('Firestore error code: ${error.code}');
+      debugPrint('Firestore error message: ${error.message}');
+      debugPrintStack(stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
   Stream<List<ManagedVenue>> watchVenues() {
     return _venuesRef
         .orderBy('name')
@@ -105,6 +153,27 @@ class BookingFirestoreService {
         return a.sortOrder.compareTo(b.sortOrder);
       });
       return courts;
+    });
+  }
+
+  /// Reads the `schedules` collection and filters the calendar client-side.
+  /// This supports documents stored with either `dateKey` or Firestore
+  /// Timestamp `date`, without requiring a composite Firestore index.
+  Stream<List<CourtSchedule>> watchSchedulesForDate(String selectedDateKey) {
+    return _schedulesRef.snapshots().map((snap) {
+      return snap.docs
+          .map(
+            (doc) => CourtSchedule.fromJson(
+              doc.data(),
+              fallbackId: doc.id,
+            ),
+          )
+          .where(
+            (schedule) =>
+                schedule.fieldId.isNotEmpty &&
+                schedule.dateKey == selectedDateKey,
+          )
+          .toList(growable: false);
     });
   }
 
@@ -344,47 +413,28 @@ class BookingFirestoreService {
 
   Future<CourtBooking> createBooking(CourtBooking booking) async {
     _validateBooking(booking);
-    return _db.runTransaction((transaction) async {
-      final doc = _bookingsRef.doc();
-      final saved = booking.copyWith(id: doc.id);
-      final lockRefs = <DocumentReference<Map<String, dynamic>>>[
-        for (
-          var minute = booking.startMinutes;
-          minute < booking.endMinutes;
-          minute += 30
-        )
-          _slotLocksRef.doc(
-            '${booking.venueId}_${booking.dateKey}_${booking.courtId}_$minute',
-          ),
-      ];
-
-      for (final lockRef in lockRefs) {
-        final lock = await transaction.get(lockRef);
-        if (lock.exists) throw const SlotAlreadyBookedException();
-      }
-
-      transaction.set(doc, {
+    final doc = _bookingsRef.doc();
+    final saved = booking.copyWith(id: doc.id);
+    try {
+      await doc.set({
         ...saved.toJson(),
+        // Keep the persisted booking schema consistent with Firestore Rules.
+        // `CourtBooking.toJson` is also used by local UI code, where these
+        // values are strings; the Firestore document must use timestamps.
+        'startTime': Timestamp.fromDate(saved.scheduledStart!),
+        'endTime': Timestamp.fromDate(saved.scheduledEnd!),
         'scheduledStart': Timestamp.fromDate(saved.scheduledStart!),
         'scheduledEnd': Timestamp.fromDate(saved.scheduledEnd!),
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      for (final lockRef in lockRefs) {
-        transaction.set(lockRef, {
-          'bookingId': saved.id,
-          'userId': saved.userId,
-          'venueId': saved.venueId,
-          'fieldId': saved.courtId,
-          'courtId': saved.courtId,
-          'dateKey': saved.dateKey,
-          'startMinutes': _minuteFromLockId(lockRef.id),
-          'status': saved.status,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
-      return saved;
-    });
+    } catch (error, stackTrace) {
+      debugPrint('Booking error type: ${error.runtimeType}');
+      debugPrint('Booking error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      rethrow;
+    }
+    return saved;
   }
 
   Future<void> cancelBooking(String bookingId) async {

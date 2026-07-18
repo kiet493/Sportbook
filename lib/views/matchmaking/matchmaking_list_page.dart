@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/community_models.dart';
 import '../../providers/community_providers.dart';
+import '../../providers/firebase_providers.dart';
 import '../event/event_list_page.dart';
 
 class MatchmakingListPage extends ConsumerWidget {
@@ -36,7 +37,7 @@ class MatchmakingListPage extends ConsumerWidget {
       ),
       body: rooms.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Không thể tải phòng: $error')),
+        error: (error, _) => Center(child: Text(_roomLoadError(error))),
         data: (items) => items.isEmpty
             ? const Center(
                 child: Text('Chưa có phòng ghép. Hãy tạo phòng mới!'),
@@ -78,4 +79,16 @@ class MatchmakingListPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _roomLoadError(Object error) {
+  if (error is FirebaseAuthRequiredException) return error.toString();
+  final value = error.toString();
+  if (value.contains('permission-denied')) {
+    return 'Bạn không có quyền xem phòng ghép. Vui lòng kiểm tra Firestore Rules.';
+  }
+  if (value.contains('unavailable')) {
+    return 'Không thể kết nối Firebase. Vui lòng thử lại.';
+  }
+  return 'Không thể tải phòng ghép: $value';
 }

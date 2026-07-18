@@ -11,6 +11,15 @@ class SportEvent {
   final int registeredCount;
   final bool active;
   final String createdBy;
+  final String fieldId;
+  final String bookingId;
+  final DateTime deadline;
+  final int minPlayers;
+  final String playerLevel;
+  final String playStyle;
+  final String teamPreference;
+  final String status;
+  final int estimatedPrice;
 
   const SportEvent({
     required this.id,
@@ -25,7 +34,16 @@ class SportEvent {
     required this.registeredCount,
     required this.active,
     required this.createdBy,
-  });
+    this.fieldId = '',
+    this.bookingId = '',
+    DateTime? deadline,
+    this.minPlayers = 1,
+    this.playerLevel = '',
+    this.playStyle = '',
+    this.teamPreference = '',
+    this.status = 'open',
+    this.estimatedPrice = 0,
+  }) : deadline = deadline ?? startAt;
 
   bool get isFull => registeredCount >= capacity;
 
@@ -42,6 +60,15 @@ class SportEvent {
     registeredCount: registeredCount ?? this.registeredCount,
     active: active,
     createdBy: createdBy,
+    fieldId: fieldId,
+    bookingId: bookingId,
+    deadline: deadline,
+    minPlayers: minPlayers,
+    playerLevel: playerLevel,
+    playStyle: playStyle,
+    teamPreference: teamPreference,
+    status: status,
+    estimatedPrice: estimatedPrice,
   );
 
   Map<String, dynamic> toJson() => {
@@ -57,6 +84,17 @@ class SportEvent {
     'registeredCount': registeredCount,
     'isActive': active,
     'createdBy': createdBy,
+    'fieldId': fieldId,
+    'bookingId': bookingId,
+    'deadline': deadline,
+    'minPlayers': minPlayers,
+    'maxPlayers': capacity,
+    'availableSlots': (capacity - registeredCount).clamp(0, capacity),
+    'playerLevel': playerLevel,
+    'playStyle': playStyle,
+    'teamPreference': teamPreference,
+    'status': status,
+    'estimatedPrice': estimatedPrice,
   };
 
   factory SportEvent.fromJson(
@@ -66,19 +104,49 @@ class SportEvent {
     final now = DateTime.now();
     return SportEvent(
       id: _string(json['_id'], fallbackId),
-      title: _string(json['title'], 'Sự kiện thể thao'),
+      title: _string(json['title'] ?? json['name'], 'Sự kiện thể thao'),
       description: _string(json['description'], ''),
-      sport: _string(json['sport'], 'Cầu lông'),
+      sport: _string(json['sport'] ?? json['sportType'] ?? json['type'], 'Cầu lông'),
       location: _string(json['location'], ''),
       imageUrl: _string(json['imageUrl'], ''),
-      startAt: _date(json['startAt']) ?? now,
-      endAt: _date(json['endAt']) ?? now.add(const Duration(hours: 2)),
-      capacity: _integer(json['capacity'], 1),
-      registeredCount: _integer(json['registeredCount'], 0),
-      active: json['isActive'] != false,
+      startAt: _date(json['startAt'] ?? json['startTime']) ?? now,
+      endAt: _date(json['endAt'] ?? json['endTime']) ?? now.add(const Duration(hours: 2)),
+      capacity: _integer(json['capacity'] ?? json['maxParticipants'] ?? json['maxPlayers'], 1),
+      registeredCount: _integer(
+        json['registeredCount'] ?? json['participantCount'] ?? json['participants'],
+        _registeredFromAvailableSlots(json),
+      ),
+      active: _eventIsActive(json),
       createdBy: _string(json['createdBy'], ''),
+      fieldId: _string(json['fieldId'], ''),
+      bookingId: _string(json['bookingId'], ''),
+      deadline: _date(json['deadline']) ?? now,
+      minPlayers: _integer(json['minPlayers'], 1),
+      playerLevel: _string(json['playerLevel'], ''),
+      playStyle: _string(json['playStyle'], ''),
+      teamPreference: _string(json['teamPreference'], ''),
+      status: _string(json['status'], 'open'),
+      estimatedPrice: _integer(json['estimatedPrice'], 0),
     );
   }
+}
+
+bool _eventIsActive(Map<String, dynamic> json) {
+  if (json['isActive'] is bool) return json['isActive'] as bool;
+  final status = json['status']?.toString().trim().toLowerCase();
+  return status != 'cancelled' &&
+      status != 'canceled' &&
+      status != 'closed' &&
+      status != 'completed';
+}
+
+int _registeredFromAvailableSlots(Map<String, dynamic> json) {
+  final capacity = _integer(
+    json['capacity'] ?? json['maxParticipants'] ?? json['maxPlayers'],
+    1,
+  );
+  final available = _integer(json['availableSlots'], capacity);
+  return (capacity - available).clamp(0, capacity).toInt();
 }
 
 class EventRegistration {
