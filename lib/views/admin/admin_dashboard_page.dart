@@ -6,10 +6,25 @@ import '../../providers/booking_providers.dart';
 import '../../providers/manage_users_providers.dart';
 import '../../providers/registration_providers.dart';
 import 'admin_bookings_page.dart';
+import 'manage_consumables_page.dart';
+import 'manage_equipment_page.dart';
+import 'manage_news_page.dart';
+import 'manage_policies_page.dart';
 import 'manage_users_page.dart';
 import 'manage_venues_page.dart';
+import 'statistics_page.dart';
 
-enum _AdminSection { dashboard, users, venues, bookings }
+enum _AdminSection {
+  dashboard,
+  users,
+  venues,
+  bookings,
+  equipment,
+  consumables,
+  news,
+  policies,
+  statistics,
+}
 
 class AdminDashboardPage extends ConsumerStatefulWidget {
   final VoidCallback onLogout;
@@ -17,8 +32,7 @@ class AdminDashboardPage extends ConsumerStatefulWidget {
   const AdminDashboardPage({super.key, required this.onLogout});
 
   @override
-  ConsumerState<AdminDashboardPage> createState() =>
-      _AdminDashboardPageState();
+  ConsumerState<AdminDashboardPage> createState() => _AdminDashboardPageState();
 }
 
 class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
@@ -31,10 +45,22 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
       _AdminSection.users => ManageUsersPage(onBack: _showDashboard),
       _AdminSection.venues => ManageVenuesPage(onBack: _showDashboard),
       _AdminSection.bookings => AdminBookingsPage(onBack: _showDashboard),
+      _AdminSection.equipment => ManageEquipmentPage(onBack: _showDashboard),
+      _AdminSection.consumables => ManageConsumablesPage(
+        onBack: _showDashboard,
+      ),
+      _AdminSection.news => ManageNewsPage(onBack: _showDashboard),
+      _AdminSection.policies => ManagePoliciesPage(onBack: _showDashboard),
+      _AdminSection.statistics => StatisticsPage(onBack: _showDashboard),
       _AdminSection.dashboard => _DashboardHome(
         onOpenUsers: () => _open(_AdminSection.users),
         onOpenVenues: () => _open(_AdminSection.venues),
         onOpenBookings: () => _open(_AdminSection.bookings),
+        onOpenEquipment: () => _open(_AdminSection.equipment),
+        onOpenConsumables: () => _open(_AdminSection.consumables),
+        onOpenNews: () => _open(_AdminSection.news),
+        onOpenPolicies: () => _open(_AdminSection.policies),
+        onOpenStatistics: () => _open(_AdminSection.statistics),
         onLogout: _confirmLogout,
         loggingOut: _loggingOut,
       ),
@@ -87,6 +113,11 @@ class _DashboardHome extends ConsumerWidget {
   final VoidCallback onOpenUsers;
   final VoidCallback onOpenVenues;
   final VoidCallback onOpenBookings;
+  final VoidCallback onOpenEquipment;
+  final VoidCallback onOpenConsumables;
+  final VoidCallback onOpenNews;
+  final VoidCallback onOpenPolicies;
+  final VoidCallback onOpenStatistics;
   final VoidCallback onLogout;
   final bool loggingOut;
 
@@ -94,6 +125,11 @@ class _DashboardHome extends ConsumerWidget {
     required this.onOpenUsers,
     required this.onOpenVenues,
     required this.onOpenBookings,
+    required this.onOpenEquipment,
+    required this.onOpenConsumables,
+    required this.onOpenNews,
+    required this.onOpenPolicies,
+    required this.onOpenStatistics,
     required this.onLogout,
     required this.loggingOut,
   });
@@ -121,10 +157,13 @@ class _DashboardHome extends ConsumerWidget {
           ),
         ),
         actions: [
-          IconButton(
-            tooltip: 'Đăng xuất',
+          TextButton.icon(
             onPressed: loggingOut ? null : onLogout,
-            icon: const Icon(Icons.logout, color: AppColors.danger),
+            icon: const Icon(Icons.logout, color: AppColors.danger, size: 18),
+            label: const Text(
+              'Đăng xuất',
+              style: TextStyle(color: AppColors.danger),
+            ),
           ),
           const SizedBox(width: 6),
         ],
@@ -220,6 +259,46 @@ class _DashboardHome extends ConsumerWidget {
                 subtitle: 'Xem booking của toàn bộ người dùng',
                 color: const Color(0xFF7C3AED),
                 onTap: onOpenBookings,
+              ),
+              const SizedBox(height: 10),
+              _AdminActionCard(
+                icon: Icons.sports_tennis,
+                title: 'Quản lý thiết bị',
+                subtitle: 'CRUD thiết bị cho thuê và sử dụng tại sân',
+                color: const Color(0xFF0F766E),
+                onTap: onOpenEquipment,
+              ),
+              const SizedBox(height: 10),
+              _AdminActionCard(
+                icon: Icons.inventory_2_outlined,
+                title: 'Quản lý vật tư tiêu hao',
+                subtitle: 'Theo dõi số lượng, đơn vị và đơn giá vật tư',
+                color: const Color(0xFFF97316),
+                onTap: onOpenConsumables,
+              ),
+              const SizedBox(height: 10),
+              _AdminActionCard(
+                icon: Icons.newspaper_outlined,
+                title: 'Quản lý tin tức',
+                subtitle: 'Soạn, sửa, xuất bản và xóa bài viết',
+                color: const Color(0xFF0284C7),
+                onTap: onOpenNews,
+              ),
+              const SizedBox(height: 10),
+              _AdminActionCard(
+                icon: Icons.policy_outlined,
+                title: 'Quản lý chính sách',
+                subtitle: 'CRUD danh mục và nội dung chính sách',
+                color: const Color(0xFF9333EA),
+                onTap: onOpenPolicies,
+              ),
+              const SizedBox(height: 10),
+              _AdminActionCard(
+                icon: Icons.insights_outlined,
+                title: 'Thống kê',
+                subtitle: 'Người dùng, sân, booking, nội dung và kho',
+                color: const Color(0xFFDC2626),
+                onTap: onOpenStatistics,
               ),
               const SizedBox(height: 24),
               OutlinedButton.icon(

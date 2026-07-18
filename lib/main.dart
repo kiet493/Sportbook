@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models/venue.dart';
 import 'models/court_booking.dart';
 import 'models/user_model.dart';
+import 'models/community_models.dart';
 import 'firebase_options.dart';
 import 'providers/firebase_providers.dart';
 import 'providers/booking_providers.dart';
@@ -15,10 +16,20 @@ import 'views/admin/manage_venues_page.dart';
 import 'views/onboarding/onboarding_page.dart';
 import 'views/auth/login_page.dart';
 import 'views/auth/register_page.dart';
+import 'views/auth/forgot_password_page.dart';
+import 'views/auth/splash_page.dart';
 import 'views/home/home_page.dart';
-import 'views/field/field_search_page.dart';
+import 'views/field/field_list_page.dart';
 import 'views/field/favorites_page.dart';
 import 'views/profile/profile_page.dart';
+import 'views/profile/change_password_page.dart';
+import 'views/profile/edit_profile_page.dart';
+import 'views/event/event_detail_page.dart';
+import 'views/event/event_list_page.dart';
+import 'views/event/join_event_page.dart';
+import 'views/matchmaking/create_matchmaking_page.dart';
+import 'views/matchmaking/matchmaking_detail_page.dart';
+import 'views/matchmaking/matchmaking_list_page.dart';
 import 'views/field/field_detail_page.dart';
 import 'views/booking/booking_page.dart';
 import 'views/booking/booking_success_page.dart';
@@ -86,13 +97,15 @@ class AppController extends ConsumerStatefulWidget {
 }
 
 class _AppControllerState extends ConsumerState<AppController> {
-  String _phase = "onboarding";
+  String _phase = "splash";
   String _screen =
       "home"; // home, search, history, favorites, profile, detail, booking, success, booking-detail
 
   Venue? _selectedVenue;
   BookingInfo? _selectedBooking;
   CourtBooking? _lastCreatedBooking;
+  SportEvent? _selectedEvent;
+  MatchmakingRoom? _selectedRoom;
 
   void _transitionPhase(String to) {
     setState(() {
@@ -144,7 +157,11 @@ class _AppControllerState extends ConsumerState<AppController> {
   Widget build(BuildContext context) {
     Widget activeWidget;
 
-    if (_phase == "onboarding") {
+    if (_phase == "splash") {
+      activeWidget = SplashPage(
+        onComplete: () => _transitionPhase("onboarding"),
+      );
+    } else if (_phase == "onboarding") {
       activeWidget = OnboardingPage(
         onComplete: () => _transitionPhase("login"),
         onSignIn: () => _transitionPhase("login"),
@@ -153,6 +170,11 @@ class _AppControllerState extends ConsumerState<AppController> {
       activeWidget = LoginPage(
         onSuccess: () => _transitionPhase("home"),
         onRegister: () => _transitionPhase("register"),
+        onForgotPassword: () => _transitionPhase("forgot-password"),
+      );
+    } else if (_phase == "forgot-password") {
+      activeWidget = ForgotPasswordPage(
+        onBack: () => _transitionPhase("login"),
       );
     } else if (_phase == "register") {
       activeWidget = RegisterPage(
@@ -169,7 +191,7 @@ class _AppControllerState extends ConsumerState<AppController> {
           );
           break;
         case "search":
-          activeWidget = FieldSearchPage(
+          activeWidget = FieldListPage(
             onBack: () => _goScreen("home"),
             onVenueTap: _goVenue,
             onNav: _goScreen,
@@ -217,6 +239,92 @@ class _AppControllerState extends ConsumerState<AppController> {
             activeNav: _screen,
             onLogout: () => _transitionPhase("login"),
           );
+          break;
+        case "edit-profile":
+          activeWidget = EditProfilePage(onBack: () => _goScreen("profile"));
+          break;
+        case "change-password":
+          activeWidget = ChangePasswordPage(onBack: () => _goScreen("profile"));
+          break;
+        case "events":
+          activeWidget = EventListPage(
+            onBack: () => _goScreen("profile"),
+            onOpenEvent: (event) {
+              setState(() {
+                _selectedEvent = event;
+                _screen = "event-detail";
+              });
+            },
+            onOpenMatchmaking: () => _goScreen("matchmaking"),
+          );
+          break;
+        case "event-detail":
+          final event = _selectedEvent;
+          activeWidget = event == null
+              ? EventListPage(
+                  onBack: () => _goScreen("profile"),
+                  onOpenEvent: (selected) {
+                    setState(() => _selectedEvent = selected);
+                  },
+                  onOpenMatchmaking: () => _goScreen("matchmaking"),
+                )
+              : EventDetailPage(
+                  event: event,
+                  onBack: () => _goScreen("events"),
+                  onJoin: () => _goScreen("join-event"),
+                );
+          break;
+        case "join-event":
+          final event = _selectedEvent;
+          activeWidget = event == null
+              ? EventListPage(
+                  onBack: () => _goScreen("profile"),
+                  onOpenEvent: (_) {},
+                  onOpenMatchmaking: () => _goScreen("matchmaking"),
+                )
+              : JoinEventPage(
+                  event: event,
+                  onBack: () => _goScreen("event-detail"),
+                  onSuccess: () => _goScreen("events"),
+                );
+          break;
+        case "matchmaking":
+          activeWidget = MatchmakingListPage(
+            onBack: () => _goScreen("profile"),
+            onCreate: () => _goScreen("create-matchmaking"),
+            onOpenRoom: (room) {
+              setState(() {
+                _selectedRoom = room;
+                _screen = "matchmaking-detail";
+              });
+            },
+            onOpenEvents: () => _goScreen("events"),
+          );
+          break;
+        case "create-matchmaking":
+          activeWidget = CreateMatchmakingPage(
+            onBack: () => _goScreen("matchmaking"),
+            onCreated: (room) {
+              setState(() {
+                _selectedRoom = room;
+                _screen = "matchmaking-detail";
+              });
+            },
+          );
+          break;
+        case "matchmaking-detail":
+          final room = _selectedRoom;
+          activeWidget = room == null
+              ? MatchmakingListPage(
+                  onBack: () => _goScreen("profile"),
+                  onCreate: () => _goScreen("create-matchmaking"),
+                  onOpenRoom: (_) {},
+                  onOpenEvents: () => _goScreen("events"),
+                )
+              : MatchmakingDetailPage(
+                  room: room,
+                  onBack: () => _goScreen("matchmaking"),
+                );
           break;
         case "admin":
           activeWidget = RoleGuard(
