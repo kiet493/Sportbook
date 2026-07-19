@@ -86,6 +86,19 @@ function asInteger(value, fallback = 0) {
     Math.round(value) : fallback;
 }
 
+function bookingIdsFrom(data) {
+  const values = Array.isArray(data?.bookingIds) ?
+    data.bookingIds : [data?.bookingId];
+  return [...new Set(values
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean))];
+}
+
+function sameBookingIds(left, right) {
+  return left.length === right.length &&
+    left.every((bookingId, index) => bookingId === right[index]);
+}
+
 function clientIp(request) {
   const forwarded = request.rawRequest.headers["x-forwarded-for"];
   const raw = Array.isArray(forwarded) ? forwarded[0] :
@@ -115,53 +128,85 @@ async function createVnpayPayment(request) {
     throw new HttpsError("unauthenticated", "Vui lòng đăng nhập để thanh toán.");
   }
 
-  const bookingId = String(request.data?.bookingId ?? "").trim();
+  const bookingIds = bookingIdsFrom(request.data);
+  const bookingId = bookingIds[0] ?? "";
   const couponId = String(request.data?.couponId ?? "").trim();
   if (!bookingId) {
     throw new HttpsError("invalid-argument", "Thiếu mã booking.");
+  }
+  if (bookingIds.length > 20) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Chỉ có thể thanh toán tối đa 20 booking trong một giao dịch.",
+    );
   }
 
   const {tmnCode, hashSecret, returnUrl} = requireVnpayConfig();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
-  const bookingRef = db.collection("bookings").doc(bookingId);
+  const bookingRefs = bookingIds.map((id) =>
+    db.collection("bookings").doc(id));
   const paymentRef = db.collection("payments").doc();
   const transactionRef = db.collection("transactions").doc();
   const couponRef = couponId ? db.collection("coupons").doc(couponId) : null;
   return db.runTransaction(async (transaction) => {
-    const bookingSnapshot = await transaction.get(bookingRef);
-    if (!bookingSnapshot.exists) {
-      throw new HttpsError("not-found", "Booking không còn tồn tại.");
+    const bookingSnapshots = [];
+    for (const bookingRef of bookingRefs) {
+      bookingSnapshots.push(await transaction.get(bookingRef));
     }
-    const booking = bookingSnapshot.data();
-    if (booking.userId !== uid) {
-      throw new HttpsError("permission-denied", "Booking không thuộc tài khoản này.");
+    if (bookingSnapshots.some((snapshot) => !snapshot.exists)) {
+      throw new HttpsError("not-found", "Có booking không còn tồn tại.");
     }
-    if (booking.status === "cancelled") {
-      throw new HttpsError("failed-precondition", "Booking đã bị hủy.");
+    const bookings = bookingSnapshots.map((snapshot) => snapshot.data());
+    if (bookings.some((booking) => booking.userId !== uid)) {
+      throw new HttpsError(
+        "permission-denied",
+        "Có booking không thuộc tài khoản này.",
+      );
     }
-    if (booking.paymentStatus === "paid") {
-      throw new HttpsError("already-exists", "Booking đã được thanh toán.");
+    if (bookings.some((booking) => booking.status === "cancelled")) {
+      throw new HttpsError("failed-precondition", "Có booking đã bị hủy.");
+    }
+    if (bookings.some((booking) => booking.paymentStatus === "paid")) {
+      throw new HttpsError("already-exists", "Có booking đã được thanh toán.");
     }
 
-    let previousPaymentSnapshot = null;
-    const previousPaymentId = String(booking.paymentId ?? "").trim();
-    if (booking.paymentStatus === "pending" && previousPaymentId) {
-      previousPaymentSnapshot = await transaction.get(
+    const previousPaymentIds = [...new Set(bookings
+      .filter((booking) => booking.paymentStatus === "pending")
+      .map((booking) => String(booking.paymentId ?? "").trim())
+      .filter(Boolean))];
+    const previousPaymentSnapshots = [];
+    for (const previousPaymentId of previousPaymentIds) {
+      const snapshot = await transaction.get(
         db.collection("payments").doc(previousPaymentId),
       );
-      if (previousPaymentSnapshot.exists) {
-        const previous = previousPaymentSnapshot.data();
-        const previousExpiry = asDate(previous.expiresAt);
-        if (previous.status === "pending" &&
-            previousExpiry?.getTime() > now.getTime()) {
-          const existing = checkoutData(previousPaymentSnapshot);
-          if (existing) return existing;
-        }
+      if (snapshot.exists) previousPaymentSnapshots.push(snapshot);
+    }
+    for (const previousSnapshot of previousPaymentSnapshots) {
+      const previous = previousSnapshot.data();
+      const previousExpiry = asDate(previous.expiresAt);
+      if (previous.status !== "pending" ||
+          previousExpiry?.getTime() <= now.getTime()) {
+        continue;
       }
+      const allBookingsUsePrevious = bookings.every((booking) =>
+        booking.paymentStatus === "pending" &&
+        String(booking.paymentId ?? "") === previousSnapshot.id);
+      if (allBookingsUsePrevious &&
+          sameBookingIds(bookingIdsFrom(previous), bookingIds)) {
+        const existing = checkoutData(previousSnapshot);
+        if (existing) return existing;
+      }
+      throw new HttpsError(
+        "failed-precondition",
+        "Một booking đang có giao dịch VNPay chưa hết hạn.",
+      );
     }
 
-    const subtotal = asInteger(booking.totalPrice);
+    const subtotal = bookings.reduce(
+      (total, booking) => total + asInteger(booking.totalPrice),
+      0,
+    );
     if (subtotal <= 0) {
       throw new HttpsError("failed-precondition", "Giá trị booking không hợp lệ.");
     }
@@ -206,7 +251,9 @@ async function createVnpayPayment(request) {
       vnp_ExpireDate: formatVnpayDate(expiresAt),
       vnp_IpAddr: clientIp(request),
       vnp_Locale: "vn",
-      vnp_OrderInfo: `Thanh toan booking ${bookingId}`,
+      vnp_OrderInfo: bookingIds.length === 1 ?
+        `Thanh toan booking ${bookingId}` :
+        `Thanh toan ${bookingIds.length} booking`,
       vnp_OrderType: "other",
       vnp_ReturnUrl: returnUrl,
       vnp_TxnRef: paymentRef.id,
@@ -217,25 +264,29 @@ async function createVnpayPayment(request) {
       hashSecret,
     );
 
-    if (previousPaymentSnapshot?.exists &&
-        previousPaymentSnapshot.data().status === "pending") {
-      transaction.update(previousPaymentSnapshot.ref, {
+    for (const previousSnapshot of previousPaymentSnapshots) {
+      if (previousSnapshot.data().status !== "pending") continue;
+      transaction.update(previousSnapshot.ref, {
         status: "expired",
         updatedAt: FieldValue.serverTimestamp(),
       });
       const oldTransactionId = String(
-        previousPaymentSnapshot.data().transactionId ?? "",
+        previousSnapshot.data().transactionId ?? "",
       );
       if (oldTransactionId) {
-        transaction.update(db.collection("transactions").doc(oldTransactionId), {
-          status: "expired",
-          updatedAt: FieldValue.serverTimestamp(),
-        });
+        transaction.update(
+          db.collection("transactions").doc(oldTransactionId),
+          {
+            status: "expired",
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+        );
       }
     }
 
     const commonData = {
       bookingId,
+      bookingIds,
       userId: uid,
       subtotal,
       amount,
@@ -260,12 +311,14 @@ async function createVnpayPayment(request) {
       _id: transactionRef.id,
       paymentId: paymentRef.id,
     });
-    transaction.update(bookingRef, {
-      paymentStatus: "pending",
-      paymentMethod: "vnpay",
-      paymentId: paymentRef.id,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
+    for (const bookingRef of bookingRefs) {
+      transaction.update(bookingRef, {
+        paymentStatus: "pending",
+        paymentMethod: "vnpay",
+        paymentId: paymentRef.id,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
 
     return {
       paymentId: paymentRef.id,
@@ -321,6 +374,7 @@ exports.createVnpayPayment = onCall(
       logger.error("createVnpayPayment failed", {
         uid: request.auth?.uid ?? null,
         bookingId: String(request.data?.bookingId ?? ""),
+        bookingIds: bookingIdsFrom(request.data),
         code: error?.code ?? null,
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : null,
@@ -342,7 +396,8 @@ async function applyVnpayResult(params, confirmationSource) {
     }
 
     const payment = paymentSnapshot.data();
-    const bookingId = String(payment.bookingId ?? "").trim();
+    const bookingIds = bookingIdsFrom(payment);
+    const bookingId = bookingIds[0] ?? "";
     const transactionId = String(payment.transactionId ?? "").trim();
     const expectedAmount = String(asInteger(payment.amount) * 100);
     if (!params.vnp_Amount || params.vnp_Amount !== expectedAmount) {
@@ -381,11 +436,16 @@ async function applyVnpayResult(params, confirmationSource) {
       };
     }
 
-    const bookingRef = db.collection("bookings").doc(bookingId);
+    const bookingRefs = bookingIds.map((id) =>
+      db.collection("bookings").doc(id));
     const transactionRef = db.collection("transactions").doc(transactionId);
-    const bookingSnapshot = await transaction.get(bookingRef);
+    const bookingSnapshots = [];
+    for (const bookingRef of bookingRefs) {
+      bookingSnapshots.push(await transaction.get(bookingRef));
+    }
     const transactionSnapshot = await transaction.get(transactionRef);
-    if (!bookingSnapshot.exists || !transactionSnapshot.exists) {
+    if (bookingSnapshots.some((snapshot) => !snapshot.exists) ||
+        !transactionSnapshot.exists) {
       return {
         outcome: "invalid-data",
         paymentId,
@@ -394,8 +454,9 @@ async function applyVnpayResult(params, confirmationSource) {
       };
     }
 
-    const booking = bookingSnapshot.data();
-    if (String(booking.paymentId ?? "") !== paymentId) {
+    const bookings = bookingSnapshots.map((snapshot) => snapshot.data());
+    if (bookings.some((booking) =>
+      String(booking.paymentId ?? "") !== paymentId)) {
       return {
         outcome: "booking-mismatch",
         paymentId,
@@ -428,22 +489,28 @@ async function applyVnpayResult(params, confirmationSource) {
     transaction.update(paymentRef, gatewayData);
     transaction.update(transactionRef, gatewayData);
     if (nextStatus === "paid") {
-      const terminalStatus = booking.status === "cancelled" ||
-        booking.status === "completed";
-      transaction.update(bookingRef, {
-        paymentStatus: "paid",
-        paymentMethod: "vnpay",
-        status: terminalStatus ? booking.status : "booked",
-        paidAt: serverTime,
-        updatedAt: serverTime,
-      });
-    } else if (booking.paymentStatus !== "paid") {
-      transaction.update(bookingRef, {
-        paymentStatus: "unpaid",
-        paymentMethod: "vnpay",
-        paymentId: FieldValue.delete(),
-        updatedAt: serverTime,
-      });
+      for (let index = 0; index < bookingRefs.length; index++) {
+        const booking = bookings[index];
+        const terminalStatus = booking.status === "cancelled" ||
+          booking.status === "completed";
+        transaction.update(bookingRefs[index], {
+          paymentStatus: "paid",
+          paymentMethod: "vnpay",
+          status: terminalStatus ? booking.status : "booked",
+          paidAt: serverTime,
+          updatedAt: serverTime,
+        });
+      }
+    } else {
+      for (let index = 0; index < bookingRefs.length; index++) {
+        if (bookings[index].paymentStatus === "paid") continue;
+        transaction.update(bookingRefs[index], {
+          paymentStatus: "unpaid",
+          paymentMethod: "vnpay",
+          paymentId: FieldValue.delete(),
+          updatedAt: serverTime,
+        });
+      }
     }
 
     return {

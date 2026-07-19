@@ -10,16 +10,16 @@ import '../../models/payment_models.dart';
 import '../../providers/payment_providers.dart';
 
 class PaymentPage extends ConsumerStatefulWidget {
-  final CourtBooking booking;
+  final List<CourtBooking> bookings;
   final VoidCallback onBack;
   final ValueChanged<PaymentTransaction> onPaid;
 
   const PaymentPage({
     super.key,
-    required this.booking,
+    required this.bookings,
     required this.onBack,
     required this.onPaid,
-  });
+  }) : assert(bookings.length > 0);
 
   @override
   ConsumerState<PaymentPage> createState() => _PaymentPageState();
@@ -29,16 +29,23 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   Coupon? _coupon;
   String? _launchError;
 
+  CourtBooking get _booking => widget.bookings.first;
+
+  int get _subtotal => widget.bookings.fold<int>(
+    0,
+    (total, booking) => total + booking.totalPrice,
+  );
+
   int get _discount =>
-      _coupon?.isApplicableTo(widget.booking.totalPrice, DateTime.now()) == true
-      ? _coupon!.discountAmount.clamp(0, widget.booking.totalPrice).toInt()
+      _coupon?.isApplicableTo(_subtotal, DateTime.now()) == true
+      ? _coupon!.discountAmount.clamp(0, _subtotal).toInt()
       : 0;
 
   Future<void> _startPayment() async {
     setState(() => _launchError = null);
     final session = await ref
         .read(vnpayCheckoutProvider.notifier)
-        .start(booking: widget.booking, coupon: _coupon);
+        .start(bookings: widget.bookings, coupon: _coupon);
     if (!mounted) return;
     if (session == null) {
       final error = ref.read(vnpayCheckoutProvider).error;
@@ -73,7 +80,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         !session.expired &&
         (paymentStatus == null || paymentStatus.isPending);
     final effectiveDiscount = session?.discount ?? _discount;
-    final total = session?.amount ?? widget.booking.totalPrice - _discount;
+    final total = session?.amount ?? _subtotal - _discount;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -91,14 +98,16 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
             child: ListTile(
               contentPadding: const EdgeInsets.all(16),
               title: Text(
-                widget.booking.venueName,
+                _booking.venueName,
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
               subtitle: Text(
-                '${widget.booking.courtName}\n${widget.booking.timeRange}',
+                widget.bookings.length == 1
+                    ? '${_booking.courtName}\n${_booking.timeRange}'
+                    : '${widget.bookings.length} khung giờ đã đặt',
               ),
               trailing: Text(
-                '${formatVnd(widget.booking.totalPrice)}đ',
+                '${formatVnd(_subtotal)}đ',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
@@ -144,7 +153,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  _amountRow('Tạm tính', widget.booking.totalPrice),
+                  _amountRow('Tạm tính', _subtotal),
                   const SizedBox(height: 10),
                   _amountRow('Giảm giá', -effectiveDiscount),
                   const Divider(height: 24),

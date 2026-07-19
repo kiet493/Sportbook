@@ -114,6 +114,7 @@ class _AppControllerState extends ConsumerState<AppController> {
   Venue? _selectedVenue;
   BookingInfo? _selectedBooking;
   CourtBooking? _lastCreatedBooking;
+  List<CourtBooking> _lastCreatedBookings = const [];
   SportEvent? _selectedEvent;
   MatchmakingRoom? _selectedRoom;
 
@@ -159,6 +160,7 @@ class _AppControllerState extends ConsumerState<AppController> {
     setState(() {
       _selectedVenue = venue;
       _lastCreatedBooking = null;
+      _lastCreatedBookings = const [];
       _screen = 'booking';
     });
   }
@@ -379,11 +381,19 @@ class _AppControllerState extends ConsumerState<AppController> {
               : BookingPage(
                   venue: venue,
                   onBack: () => _goScreen("detail"),
-                  onConfirm: (booking) {
+                  onConfirm: (bookings) {
+                    final booking = bookings.first;
+                    final checkoutBooking = booking.copyWith(
+                      totalPrice: bookings.fold<int>(
+                        0,
+                        (total, item) => total + item.totalPrice,
+                      ),
+                    );
                     setState(() {
-                      _lastCreatedBooking = booking;
+                      _lastCreatedBooking = checkoutBooking;
+                      _lastCreatedBookings = bookings;
                       _selectedBooking = bookingInfoFromCourtBooking(
-                        booking,
+                        checkoutBooking,
                         venue: venue,
                       );
                       _screen = 'payment';
@@ -392,15 +402,14 @@ class _AppControllerState extends ConsumerState<AppController> {
                 );
           break;
         case "payment":
-          final booking = _lastCreatedBooking;
-          activeWidget = booking == null
+          activeWidget = _lastCreatedBookings.isEmpty
               ? HomePage(
                   onVenueTap: _goVenue,
                   onNav: _goScreen,
                   activeNav: "home",
                 )
               : PaymentPage(
-                  booking: booking,
+                  bookings: _lastCreatedBookings,
                   onBack: () => _goScreen('booking'),
                   onPaid: (_) => _goScreen('success'),
                 );

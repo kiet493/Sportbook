@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/widgets/back_chevron_button.dart';
-import '../../core/utils/currency_formatter.dart';
 import '../../models/court_booking.dart';
 import '../../models/venue.dart';
 import '../../providers/booking_providers.dart';
@@ -19,7 +18,7 @@ import 'widgets/booking_terms_checkbox.dart';
 class BookingPage extends ConsumerStatefulWidget {
   final Venue venue;
   final VoidCallback onBack;
-  final ValueChanged<CourtBooking> onConfirm;
+  final ValueChanged<List<CourtBooking>> onConfirm;
 
   const BookingPage({
     super.key,
@@ -65,10 +64,17 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     super.dispose();
   }
 
-  int get _hourlyPrice => _selectedSlot?.court.pricePerHour ?? widget.venue.priceNum;
+  int get _hourlyPrice =>
+      _selectedSlot?.court.pricePerHour ?? widget.venue.priceNum;
   int get _finalTotal => _selectedSlots.values.fold<int>(
     0,
-    (total, slot) => total + ((slot.court.pricePerHour > 0 ? slot.court.pricePerHour : widget.venue.priceNum) / 2).round(),
+    (total, slot) =>
+        total +
+        ((slot.court.pricePerHour > 0
+                    ? slot.court.pricePerHour
+                    : widget.venue.priceNum) /
+                2)
+            .round(),
   );
   int get _durationMinutes => BookingScheduleBoard.stepMinute;
   String get _selectedDateKey => dateKey(_selectedDate);
@@ -80,9 +86,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     return ((current ~/ 30) + 1) * 30;
   }
 
-  Map<String, Set<int>> _availabilityByCourt(
-    List<CourtSchedule> schedules,
-  ) {
+  Map<String, Set<int>> _availabilityByCourt(List<CourtSchedule> schedules) {
     final result = <String, Set<int>>{};
     for (final schedule in schedules) {
       result
@@ -119,11 +123,19 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       minute += BookingScheduleBoard.stepMinute
     ) {
       if (!slots.contains(minute)) return false;
-      if (bookings.any((booking) =>
-          booking.courtId == selection.court.id &&
-          CourtSlotStatus.activeStatuses.contains(booking.status) &&
-          rangesOverlap(minute, minute + BookingScheduleBoard.stepMinute,
-              booking.startMinutes, booking.endMinutes))) return false;
+      if (bookings.any(
+        (booking) =>
+            booking.courtId == selection.court.id &&
+            CourtSlotStatus.activeStatuses.contains(booking.status) &&
+            rangesOverlap(
+              minute,
+              minute + BookingScheduleBoard.stepMinute,
+              booking.startMinutes,
+              booking.endMinutes,
+            ),
+      )) {
+        return false;
+      }
     }
     return true;
   }
@@ -135,10 +147,23 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         .read(venueSchedulesProvider(_selectedDateKey))
         .valueOrNull;
     if (schedules == null ||
-        !_selectedSlots.values.every((selection) => _isSelectionValid(
-          selection, _availabilityByCourt(schedules), ref.read(venueBookingsProvider(BookingDateQuery(
-            venueId: widget.venue.firestoreId, dateKey: _selectedDateKey,
-          ))).valueOrNull ?? const []))) {
+        !_selectedSlots.values.every(
+          (selection) => _isSelectionValid(
+            selection,
+            _availabilityByCourt(schedules),
+            ref
+                    .read(
+                      venueBookingsProvider(
+                        BookingDateQuery(
+                          venueId: widget.venue.firestoreId,
+                          dateKey: _selectedDateKey,
+                        ),
+                      ),
+                    )
+                    .valueOrNull ??
+                const [],
+          ),
+        )) {
       _showMessage('Khung giờ đã chọn không còn hợp lệ. Vui lòng chọn lại.');
       return;
     }
@@ -151,32 +176,42 @@ class _BookingPageState extends ConsumerState<BookingPage> {
 
     setState(() => _isLoading = true);
     final managedVenue = ManagedVenue.fromLegacy(widget.venue);
-    final bookings = _selectedSlots.values.map((selected) => CourtBooking(
-      id: '',
-      venueId: managedVenue.id,
-      venueName: managedVenue.name,
-      courtId: selected.court.id,
-      courtName: selected.court.name,
-      userId: session.user.id,
-      userName: session.user.fullName,
-      userPhone: session.user.phone,
-      dateKey: _selectedDateKey,
-      startMinutes: selected.startMinutes,
-      endMinutes: selected.startMinutes + _durationMinutes,
-      totalPrice: ((selected.court.pricePerHour > 0 ? selected.court.pricePerHour : widget.venue.priceNum) / 2).round(),
-      participants: 2,
-      status: CourtSlotStatus.booked,
-      paymentMethod: 'cash',
-      notes: _notesController.text.trim(),
-      createdAt: DateTime.now(),
-    )).toList();
+    final bookings = _selectedSlots.values
+        .map(
+          (selected) => CourtBooking(
+            id: '',
+            venueId: managedVenue.id,
+            venueName: managedVenue.name,
+            courtId: selected.court.id,
+            courtName: selected.court.name,
+            userId: session.user.id,
+            userName: session.user.fullName,
+            userPhone: session.user.phone,
+            dateKey: _selectedDateKey,
+            startMinutes: selected.startMinutes,
+            endMinutes: selected.startMinutes + _durationMinutes,
+            totalPrice:
+                ((selected.court.pricePerHour > 0
+                            ? selected.court.pricePerHour
+                            : widget.venue.priceNum) /
+                        2)
+                    .round(),
+            participants: 2,
+            status: CourtSlotStatus.booked,
+            paymentMethod: 'cash',
+            notes: _notesController.text.trim(),
+            createdAt: DateTime.now(),
+          ),
+        )
+        .toList();
 
     String? error;
-    CourtBooking? saved;
+    final savedBookings = <CourtBooking>[];
     for (final booking in bookings) {
       error = await ref.read(bookingSubmitProvider.notifier).submit(booking);
       if (error != null) break;
-      saved ??= ref.read(bookingSubmitProvider).valueOrNull;
+      final saved = ref.read(bookingSubmitProvider).valueOrNull;
+      if (saved != null) savedBookings.add(saved);
     }
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -186,7 +221,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       return;
     }
 
-    if (saved != null) widget.onConfirm(saved);
+    if (savedBookings.isNotEmpty) {
+      widget.onConfirm(List<CourtBooking>.unmodifiable(savedBookings));
+    }
   }
 
   @override
@@ -194,15 +231,23 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     final venueId = widget.venue.firestoreId;
     final courtsAsync = ref.watch(venueCourtsProvider(venueId));
     final schedulesAsync = ref.watch(venueSchedulesProvider(_selectedDateKey));
-    final bookingsAsync = ref.watch(venueBookingsProvider(BookingDateQuery(
-      venueId: venueId, dateKey: _selectedDateKey,
-    )));
+    final bookingsAsync = ref.watch(
+      venueBookingsProvider(
+        BookingDateQuery(venueId: venueId, dateKey: _selectedDateKey),
+      ),
+    );
     final scheduleSlots = _availabilityByCourt(
       schedulesAsync.valueOrNull ?? const <CourtSchedule>[],
     );
-    final selectionIsValid = _selectedSlots.isNotEmpty && _selectedSlots.values.every(
-      (selection) => _isSelectionValid(selection, scheduleSlots, bookingsAsync.valueOrNull ?? const []),
-    );
+    final selectionIsValid =
+        _selectedSlots.isNotEmpty &&
+        _selectedSlots.values.every(
+          (selection) => _isSelectionValid(
+            selection,
+            scheduleSlots,
+            bookingsAsync.valueOrNull ?? const [],
+          ),
+        );
     final signedIn = ref.watch(sessionProvider) != null;
 
     return Scaffold(
@@ -269,25 +314,28 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                           ? const _EmptySchedule()
                           : bookingsAsync.when(
                               data: (bookings) => BookingScheduleBoard(
-                              courts: courts,
-                              bookings: bookings,
-                              availableSlotsByCourt:
-                                  _availabilityByCourt(schedules),
-                              durationMinutes: _durationMinutes,
-                              minimumStartMinutes: _minimumStartMinutes,
-                              selectedSlotKeys: _selectedSlots.keys.toSet(),
-                              onSelected: (slot) => setState(() {
-                                final key = '${slot.court.id}_${slot.startMinutes}';
-                                if (_selectedSlots.containsKey(key)) {
-                                  _selectedSlots.remove(key);
-                                  _selectedSlot = _selectedSlots.values.firstOrNull;
-                                } else {
-                                  _selectedSlots[key] = slot;
-                                  _selectedSlot = slot;
-                                }
-                              }),
-                              onUnavailableTap: _showMessage,
-                            ),
+                                courts: courts,
+                                bookings: bookings,
+                                availableSlotsByCourt: _availabilityByCourt(
+                                  schedules,
+                                ),
+                                durationMinutes: _durationMinutes,
+                                minimumStartMinutes: _minimumStartMinutes,
+                                selectedSlotKeys: _selectedSlots.keys.toSet(),
+                                onSelected: (slot) => setState(() {
+                                  final key =
+                                      '${slot.court.id}_${slot.startMinutes}';
+                                  if (_selectedSlots.containsKey(key)) {
+                                    _selectedSlots.remove(key);
+                                    _selectedSlot =
+                                        _selectedSlots.values.firstOrNull;
+                                  } else {
+                                    _selectedSlots[key] = slot;
+                                    _selectedSlot = slot;
+                                  }
+                                }),
+                                onUnavailableTap: _showMessage,
+                              ),
                               error: (error, _) => const _ErrorBox(
                                 message: 'Không tải được trạng thái khung giờ.',
                               ),
@@ -333,7 +381,11 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             bottom: 0,
             child: BookingBottomBar(
               finalTotal: _finalTotal,
-                  enabled: signedIn && _agreed && _selectedSlots.isNotEmpty && selectionIsValid,
+              enabled:
+                  signedIn &&
+                  _agreed &&
+                  _selectedSlots.isNotEmpty &&
+                  selectionIsValid,
               isLoading: _isLoading,
               onConfirm: _confirmBooking,
             ),

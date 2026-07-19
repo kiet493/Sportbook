@@ -126,7 +126,8 @@ service cloud.firestore {
           || selectedCourt(request.resource.data.fieldId).active == true
         )
         && request.resource.data.totalPrice is int
-        && request.resource.data.totalPrice >= 0;
+        && request.resource.data.totalPrice >= 0
+        );
       allow update: if isAdmin()
         || (
           signedIn()
@@ -208,6 +209,40 @@ service cloud.firestore {
     match /transactions/{transactionId} {
       allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
       allow write: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isAdmin()
+        || (
+          signedIn()
+          && request.resource.data.keys().hasOnly([
+            'userId',
+            'title',
+            'body',
+            'type',
+            'read',
+            'createdAt'
+          ])
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.title is string
+          && request.resource.data.body is string
+          && request.resource.data.type is string
+          && request.resource.data.read == false
+          && request.resource.data.createdAt == request.time
+        );
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'read'
+          ])
+          && request.resource.data.read == true
+        );
+      allow delete: if isAdmin();
     }
 
     match /events/{eventId} {
