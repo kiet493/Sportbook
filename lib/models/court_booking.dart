@@ -13,7 +13,7 @@ class CourtSlotStatus {
   static String label(String status) {
     switch (status) {
       case blocked:
-        return 'Khoa';
+        return 'Bao tri';
       case event:
         return 'Su kien';
       case cancelled:

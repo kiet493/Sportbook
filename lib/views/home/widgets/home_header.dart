@@ -10,6 +10,7 @@ class HomeHeader extends StatelessWidget {
   final String location;
   final String avatarUrl;
   final bool hasNotification;
+  final VoidCallback? onNotificationsTap;
 
   const HomeHeader({
     super.key,
@@ -18,6 +19,7 @@ class HomeHeader extends StatelessWidget {
     required this.location,
     required this.avatarUrl,
     this.hasNotification = true,
+    this.onNotificationsTap,
   });
 
   @override
@@ -31,7 +33,10 @@ class HomeHeader extends StatelessWidget {
           _GreetingColumn(greeting: greeting, name: name, location: location),
           Row(
             children: [
-              _NotificationBell(hasNotification: hasNotification),
+              _NotificationBell(
+                hasNotification: hasNotification,
+                onTap: onNotificationsTap,
+              ),
               const SizedBox(width: 8),
               _UserAvatar(avatarUrl: avatarUrl),
             ],
@@ -97,13 +102,16 @@ class _GreetingColumn extends StatelessWidget {
 
 class _NotificationBell extends StatelessWidget {
   final bool hasNotification;
+  final VoidCallback? onTap;
 
-  const _NotificationBell({required this.hasNotification});
+  const _NotificationBell({required this.hasNotification, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Stack(children: [
         Container(
           width: 40,
           height: 40,
@@ -138,7 +146,7 @@ class _NotificationBell extends StatelessWidget {
               ),
             ),
           ),
-      ],
+      ]),
     );
   }
 }

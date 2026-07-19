@@ -99,7 +99,8 @@ service cloud.firestore {
     match /bookings/{bookingId} {
       allow read: if isAdmin()
         || (signedIn() && resource.data.userId == request.auth.uid);
-      allow create: if signedIn()
+      allow create: if isAdmin()
+        || (signedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data._id == bookingId
         && request.resource.data.id == bookingId
@@ -145,7 +146,8 @@ service cloud.firestore {
 
     match /bookingSlotLocks/{lockId} {
       allow read: if signedIn();
-      allow create: if signedIn()
+      allow create: if isAdmin()
+        || (signedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.status == 'booked'
         && request.resource.data.startMinutes is int
@@ -160,7 +162,7 @@ service cloud.firestore {
         && bookingAfter(request.resource.data.bookingId).fieldId
           == request.resource.data.fieldId
         && bookingAfter(request.resource.data.bookingId).dateKey
-          == request.resource.data.dateKey;
+          == request.resource.data.dateKey);
       allow update: if isAdmin();
       allow delete: if isAdmin()
         || (

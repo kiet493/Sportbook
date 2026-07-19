@@ -4,13 +4,13 @@ import '../../../core/utils/currency_formatter.dart';
 
 /// Cost summary only. Payment is intentionally outside the booking flow.
 class BookingPriceBreakdown extends StatelessWidget {
-  final int duration;
+  final String durationLabel;
   final int hourlyPrice;
   final int finalTotal;
 
   const BookingPriceBreakdown({
     super.key,
-    required this.duration,
+    required this.durationLabel,
     required this.hourlyPrice,
     required this.finalTotal,
   });
@@ -40,8 +40,9 @@ class BookingPriceBreakdown extends StatelessWidget {
             label: "Đơn giá sân",
             value: "${formatVnd(hourlyPrice)}đ/giờ",
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 8), /* Hour-based duration text removed.
           _Row(label: "Thời lượng", value: "$duration giờ"),
+          */ _Row(label: 'Thời lượng', value: durationLabel),
           const SizedBox(height: 10),
           const Divider(color: Color(0xFFE2E8F0)),
           const SizedBox(height: 10),
