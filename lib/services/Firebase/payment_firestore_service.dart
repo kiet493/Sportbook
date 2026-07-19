@@ -78,9 +78,19 @@ class PaymentFirestoreService {
       );
 
   Future<VnpayPaymentSession> createVnpayPayment({
-    required String bookingId,
+    required List<String> bookingIds,
     String? couponId,
   }) async {
+    final normalizedBookingIds = bookingIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    if (normalizedBookingIds.isEmpty) {
+      throw const FormatException(
+        'Không xác định được booking cần thanh toán.',
+      );
+    }
     final normalizedCouponId = couponId?.trim();
     try {
       if (kDebugMode) {
@@ -91,7 +101,8 @@ class PaymentFirestoreService {
       }
       final callable = _functions.httpsCallable('createVnpayPayment');
       final result = await callable.call(<String, Object?>{
-        'bookingId': bookingId,
+        'bookingId': normalizedBookingIds.first,
+        'bookingIds': normalizedBookingIds,
         if (normalizedCouponId != null && normalizedCouponId.isNotEmpty)
           'couponId': normalizedCouponId,
       });

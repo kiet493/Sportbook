@@ -28,25 +28,33 @@ class PaymentRepository {
       _service.watchPayment(paymentId);
 
   Future<VnpayPaymentSession> createVnpayPayment({
-    required CourtBooking booking,
+    required List<CourtBooking> bookings,
     Coupon? coupon,
   }) {
-    if (booking.id.isEmpty || booking.totalPrice <= 0) {
+    if (bookings.isEmpty ||
+        bookings.any(
+          (booking) => booking.id.isEmpty || booking.totalPrice <= 0,
+        )) {
       throw const PaymentValidationException(
         'Thông tin booking không hợp lệ để thanh toán.',
       );
     }
-    if (booking.status == CourtSlotStatus.cancelled) {
+    if (bookings.any(
+      (booking) => booking.status == CourtSlotStatus.cancelled,
+    )) {
       throw const PaymentValidationException(
-        'Không thể thanh toán booking đã hủy.',
+        'Không thể thanh toán vì có booking đã hủy.',
       );
     }
-    if (coupon != null &&
-        !coupon.isApplicableTo(booking.totalPrice, DateTime.now())) {
+    final subtotal = bookings.fold<int>(
+      0,
+      (total, booking) => total + booking.totalPrice,
+    );
+    if (coupon != null && !coupon.isApplicableTo(subtotal, DateTime.now())) {
       throw const PaymentValidationException('Mã giảm giá không còn hợp lệ.');
     }
     return _service.createVnpayPayment(
-      bookingId: booking.id,
+      bookingIds: bookings.map((booking) => booking.id).toList(growable: false),
       couponId: coupon?.id,
     );
   }

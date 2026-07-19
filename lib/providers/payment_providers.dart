@@ -42,14 +42,14 @@ class VnpayCheckoutNotifier
   VnpayPaymentSession? build() => null;
 
   Future<VnpayPaymentSession?> start({
-    required CourtBooking booking,
+    required List<CourtBooking> bookings,
     Coupon? coupon,
   }) async {
     state = const AsyncLoading();
     try {
       final session = await ref
           .read(paymentRepositoryProvider)
-          .createVnpayPayment(booking: booking, coupon: coupon);
+          .createVnpayPayment(bookings: bookings, coupon: coupon);
       state = AsyncData(session);
       return session;
     } catch (error, stackTrace) {
