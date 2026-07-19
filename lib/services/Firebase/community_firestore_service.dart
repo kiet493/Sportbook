@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../models/community_models.dart';
+import '../../models/court_booking.dart';
 
 class AlreadyJoinedException implements Exception {
   const AlreadyJoinedException();
@@ -9,6 +10,15 @@ class AlreadyJoinedException implements Exception {
 
 class CommunityCapacityException implements Exception {
   const CommunityCapacityException();
+}
+
+class MatchmakingBookingRequiredException implements Exception {
+  final String message;
+
+  const MatchmakingBookingRequiredException(this.message);
+
+  @override
+  String toString() => message;
 }
 
 class CommunityFirestoreService {
@@ -42,25 +52,30 @@ class CommunityFirestoreService {
   Stream<List<MatchmakingRoom>> watchRooms() {
     debugPrint('Matchmaking query path: ${_rooms.path}');
     return _rooms.snapshots().map((snapshot) {
-    final items = snapshot.docs
-        .map((doc) => MatchmakingRoom.fromJson(doc.data(), fallbackId: doc.id))
-        .toList();
-    items.sort((a, b) => a.playAt.compareTo(b.playAt));
-    return items;
+      final items = snapshot.docs
+          .map(
+            (doc) => MatchmakingRoom.fromJson(doc.data(), fallbackId: doc.id),
+          )
+          .toList();
+      items.sort((a, b) => a.playAt.compareTo(b.playAt));
+      return items;
     });
   }
 
   Stream<List<MatchmakingMember>> watchMembers(String roomId) {
-    debugPrint('Matchmaking members query path: ${_members.path}, roomId: $roomId');
-    return _members.where('roomId', isEqualTo: roomId).snapshots().map((snapshot) {
-        final items = snapshot.docs
-            .map(
-              (doc) =>
-                  MatchmakingMember.fromJson(doc.data(), fallbackId: doc.id),
-            )
-            .toList();
-        items.sort((a, b) => a.joinedAt.compareTo(b.joinedAt));
-        return items;
+    debugPrint(
+      'Matchmaking members query path: ${_members.path}, roomId: $roomId',
+    );
+    return _members.where('roomId', isEqualTo: roomId).snapshots().map((
+      snapshot,
+    ) {
+      final items = snapshot.docs
+          .map(
+            (doc) => MatchmakingMember.fromJson(doc.data(), fallbackId: doc.id),
+          )
+          .toList();
+      items.sort((a, b) => a.joinedAt.compareTo(b.joinedAt));
+      return items;
     });
   }
 
@@ -102,7 +117,13 @@ class CommunityFirestoreService {
     MatchmakingRoom room,
     MatchmakingMember creator,
   ) async {
+    if (room.bookingId.isEmpty) {
+      throw const MatchmakingBookingRequiredException(
+        'Bạn phải chọn một lịch đặt sân hợp lệ.',
+      );
+    }
     final roomRef = _rooms.doc();
+    final bookingRef = _db.collection('bookings').doc(room.bookingId);
     final savedRoom = room.copyWith(id: roomRef.id, memberCount: 1);
     final memberId = '${roomRef.id}_${creator.userId}';
     final member = MatchmakingMember(
@@ -113,17 +134,49 @@ class CommunityFirestoreService {
       phone: creator.phone,
       joinedAt: creator.joinedAt,
     );
-    final batch = _db.batch();
-    batch.set(roomRef, {
-      ...savedRoom.toJson(),
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+    await _db.runTransaction((transaction) async {
+      final bookingSnapshot = await transaction.get(bookingRef);
+      final bookingData = bookingSnapshot.data();
+      if (!bookingSnapshot.exists || bookingData == null) {
+        throw const MatchmakingBookingRequiredException(
+          'Không tìm thấy lịch đặt sân đã chọn.',
+        );
+      }
+
+      final booking = CourtBooking.fromJson(
+        bookingData,
+        fallbackId: bookingSnapshot.id,
+      );
+      final scheduledStart = booking.scheduledStart;
+      final scheduledEnd = booking.scheduledEnd;
+      final matchesBooking =
+          booking.userId == creator.userId &&
+          booking.status == CourtSlotStatus.booked &&
+          scheduledStart != null &&
+          scheduledEnd != null &&
+          scheduledStart.isAfter(DateTime.now()) &&
+          booking.venueId == room.venueId &&
+          booking.courtId == room.courtId &&
+          booking.venueName == room.venueName &&
+          booking.courtName == room.courtName &&
+          scheduledStart.difference(room.playAt).abs() <
+              const Duration(minutes: 1);
+      if (!matchesBooking) {
+        throw const MatchmakingBookingRequiredException(
+          'Lịch đặt sân không hợp lệ hoặc không thuộc tài khoản của bạn.',
+        );
+      }
+
+      transaction.set(roomRef, {
+        ...savedRoom.toJson(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      transaction.set(_members.doc(memberId), {
+        ...member.toJson(),
+        'joinedAt': FieldValue.serverTimestamp(),
+      });
     });
-    batch.set(_members.doc(memberId), {
-      ...member.toJson(),
-      'joinedAt': FieldValue.serverTimestamp(),
-    });
-    await batch.commit();
     return savedRoom;
   }
 

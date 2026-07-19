@@ -11,7 +11,6 @@ class ProfileContent extends StatelessWidget {
   final VoidCallback onTransactionHistoryTap;
   final VoidCallback onEditProfileTap;
   final VoidCallback onChangePasswordTap;
-  final VoidCallback onCommunityTap;
   final VoidCallback onFavoritesTap;
   final VoidCallback onLogout;
   final VoidCallback? onManageUsersTap;
@@ -24,7 +23,6 @@ class ProfileContent extends StatelessWidget {
     required this.onTransactionHistoryTap,
     required this.onEditProfileTap,
     required this.onChangePasswordTap,
-    required this.onCommunityTap,
     required this.onFavoritesTap,
     required this.onLogout,
     this.onManageUsersTap,
@@ -44,8 +42,6 @@ class ProfileContent extends StatelessWidget {
           ProfileMenuButton(label: "Chỉnh sửa hồ sơ", onTap: onEditProfileTap),
           const SizedBox(height: 12),
           ProfileMenuButton(label: "Đổi mật khẩu", onTap: onChangePasswordTap),
-          const SizedBox(height: 12),
-          ProfileMenuButton(label: "Sự kiện & Ghép đội", onTap: onCommunityTap),
           const SizedBox(height: 12),
           ProfileMenuButton(
             label: "L\u1ecbch s\u1eed \u0111\u1eb7t s\u00e2n",

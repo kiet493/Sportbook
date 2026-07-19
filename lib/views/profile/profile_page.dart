@@ -35,7 +35,6 @@ class ProfilePage extends ConsumerWidget {
                 user: session?.user,
                 onEditProfileTap: () => onNav('edit-profile'),
                 onChangePasswordTap: () => onNav('change-password'),
-                onCommunityTap: () => onNav('events'),
                 onHistoryTap: () => onNav('history'),
                 onTransactionHistoryTap: () => onNav('transactions'),
                 onFavoritesTap: () => onNav('favorites'),

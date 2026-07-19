@@ -14,9 +14,7 @@ class TransactionHistoryPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(sessionProvider)?.user;
     if (user == null) {
-      return const Scaffold(
-        body: Center(child: Text('Vui lòng đăng nhập.')),
-      );
+      return const Scaffold(body: Center(child: Text('Vui lòng đăng nhập.')));
     }
 
     final transactions = ref.watch(transactionsProvider(user.id));
@@ -31,9 +29,8 @@ class TransactionHistoryPage extends ConsumerWidget {
       ),
       body: transactions.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Text('Không tải được giao dịch: $error'),
-        ),
+        error: (error, _) =>
+            Center(child: Text('Không tải được giao dịch: $error')),
         data: (items) {
           if (items.isEmpty) {
             return const Center(child: Text('Chưa có giao dịch.'));
@@ -48,16 +45,16 @@ class TransactionHistoryPage extends ConsumerWidget {
               final couponLabel = item.couponCode.isEmpty
                   ? ''
                   : ' • ${item.couponCode}';
+              final status = _transactionStatus(item.status);
 
               return Card(
                 child: ListTile(
                   leading: const Icon(Icons.receipt_long),
                   title: Text('${formatVnd(item.amount)}đ'),
-                  subtitle: Text('${item.method}$couponLabel'),
-                  trailing: const Text(
-                    'Đã thanh toán',
-                    style: TextStyle(color: Colors.green),
+                  subtitle: Text(
+                    '${item.method == 'vnpay' ? 'VNPay' : item.method}$couponLabel',
                   ),
+                  trailing: Text(status.$1, style: TextStyle(color: status.$2)),
                 ),
               );
             },
@@ -67,3 +64,11 @@ class TransactionHistoryPage extends ConsumerWidget {
     );
   }
 }
+
+(String, Color) _transactionStatus(String status) => switch (status) {
+  'paid' => ('Đã thanh toán', const Color(0xFF16A34A)),
+  'pending' => ('Đang chờ', const Color(0xFFD97706)),
+  'failed' => ('Thất bại', const Color(0xFFDC2626)),
+  'expired' => ('Hết hạn', const Color(0xFF64748B)),
+  _ => ('Chưa xác định', const Color(0xFF64748B)),
+};

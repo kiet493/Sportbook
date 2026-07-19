@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,6 +12,7 @@ import 'providers/firebase_providers.dart';
 import 'providers/booking_providers.dart';
 import 'providers/registration_providers.dart';
 import 'routes/app_router.dart';
+import 'services/Firebase/firebase_functions_client.dart';
 import 'views/admin/admin_dashboard_page.dart';
 import 'views/admin/manage_venues_page.dart';
 import 'views/onboarding/onboarding_page.dart';
@@ -41,6 +43,12 @@ import 'views/payment/transaction_history_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final firebaseStartupError = await _initializeFirebase();
+  if (firebaseStartupError == null && kDebugMode) {
+    functions.useFunctionsEmulator(
+      functionsEmulatorHost,
+      functionsEmulatorPort,
+    );
+  }
 
   runApp(
     ProviderScope(
@@ -250,7 +258,7 @@ class _AppControllerState extends ConsumerState<AppController> {
           break;
         case "events":
           activeWidget = EventListPage(
-            onBack: () => _goScreen("profile"),
+            onBack: () => _goScreen("home"),
             onOpenEvent: (event) {
               setState(() {
                 _selectedEvent = event;
@@ -264,7 +272,7 @@ class _AppControllerState extends ConsumerState<AppController> {
           final event = _selectedEvent;
           activeWidget = event == null
               ? EventListPage(
-                  onBack: () => _goScreen("profile"),
+                  onBack: () => _goScreen("home"),
                   onOpenEvent: (selected) {
                     setState(() => _selectedEvent = selected);
                   },
@@ -280,7 +288,7 @@ class _AppControllerState extends ConsumerState<AppController> {
           final event = _selectedEvent;
           activeWidget = event == null
               ? EventListPage(
-                  onBack: () => _goScreen("profile"),
+                  onBack: () => _goScreen("home"),
                   onOpenEvent: (_) {},
                   onOpenMatchmaking: () => _goScreen("matchmaking"),
                 )
@@ -292,7 +300,7 @@ class _AppControllerState extends ConsumerState<AppController> {
           break;
         case "matchmaking":
           activeWidget = MatchmakingListPage(
-            onBack: () => _goScreen("profile"),
+            onBack: () => _goScreen("home"),
             onCreate: () => _goScreen("create-matchmaking"),
             onOpenRoom: (room) {
               setState(() {
@@ -306,6 +314,7 @@ class _AppControllerState extends ConsumerState<AppController> {
         case "create-matchmaking":
           activeWidget = CreateMatchmakingPage(
             onBack: () => _goScreen("matchmaking"),
+            onBookCourt: () => _goScreen("search"),
             onCreated: (room) {
               setState(() {
                 _selectedRoom = room;
@@ -318,7 +327,7 @@ class _AppControllerState extends ConsumerState<AppController> {
           final room = _selectedRoom;
           activeWidget = room == null
               ? MatchmakingListPage(
-                  onBack: () => _goScreen("profile"),
+                  onBack: () => _goScreen("home"),
                   onCreate: () => _goScreen("create-matchmaking"),
                   onOpenRoom: (_) {},
                   onOpenEvents: () => _goScreen("events"),
@@ -385,7 +394,11 @@ class _AppControllerState extends ConsumerState<AppController> {
         case "payment":
           final booking = _lastCreatedBooking;
           activeWidget = booking == null
-              ? HomePage(onVenueTap: _goVenue, onNav: _goScreen, activeNav: "home")
+              ? HomePage(
+                  onVenueTap: _goVenue,
+                  onNav: _goScreen,
+                  activeNav: "home",
+                )
               : PaymentPage(
                   booking: booking,
                   onBack: () => _goScreen('booking'),
@@ -393,7 +406,9 @@ class _AppControllerState extends ConsumerState<AppController> {
                 );
           break;
         case "transactions":
-          activeWidget = TransactionHistoryPage(onBack: () => _goScreen('profile'));
+          activeWidget = TransactionHistoryPage(
+            onBack: () => _goScreen('profile'),
+          );
           break;
         case "success":
           final venue = _selectedVenue;
