@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../models/court_booking.dart';
+import 'notification_firestore_service.dart';
 
 class SlotAlreadyBookedException implements Exception {
   const SlotAlreadyBookedException();
@@ -416,17 +417,35 @@ class BookingFirestoreService {
     final doc = _bookingsRef.doc();
     final saved = booking.copyWith(id: doc.id);
     try {
-      await doc.set({
-        ...saved.toJson(),
-        // Keep the persisted booking schema consistent with Firestore Rules.
-        // `CourtBooking.toJson` is also used by local UI code, where these
-        // values are strings; the Firestore document must use timestamps.
-        'startTime': Timestamp.fromDate(saved.scheduledStart!),
-        'endTime': Timestamp.fromDate(saved.scheduledEnd!),
-        'scheduledStart': Timestamp.fromDate(saved.scheduledStart!),
-        'scheduledEnd': Timestamp.fromDate(saved.scheduledEnd!),
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
+      await _db.runTransaction((transaction) async {
+        final lockRefs = <DocumentReference<Map<String, dynamic>>>[
+          for (var minute = saved.startMinutes; minute < saved.endMinutes; minute += 30)
+            _slotLocksRef.doc('${saved.venueId}_${saved.dateKey}_${saved.courtId}_$minute'),
+        ];
+        for (final lockRef in lockRefs) {
+          if ((await transaction.get(lockRef)).exists) {
+            throw const SlotAlreadyBookedException();
+          }
+        }
+        transaction.set(doc, {
+          ...saved.toJson(),
+          'startTime': Timestamp.fromDate(saved.scheduledStart!),
+          'endTime': Timestamp.fromDate(saved.scheduledEnd!),
+          'scheduledStart': Timestamp.fromDate(saved.scheduledStart!),
+          'scheduledEnd': Timestamp.fromDate(saved.scheduledEnd!),
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        for (var index = 0; index < lockRefs.length; index++) {
+          final minute = saved.startMinutes + index * 30;
+          transaction.set(lockRefs[index], {
+            'bookingId': doc.id, 'venueId': saved.venueId,
+            'fieldId': saved.courtId, 'courtId': saved.courtId,
+            'dateKey': saved.dateKey, 'startMinutes': minute,
+            'status': CourtSlotStatus.booked, 'userId': saved.userId,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
       });
     } catch (error, stackTrace) {
       debugPrint('Booking error type: ${error.runtimeType}');
@@ -434,7 +453,41 @@ class BookingFirestoreService {
       debugPrintStack(stackTrace: stackTrace);
       rethrow;
     }
+    await NotificationFirestoreService(firestore: _db).create(
+      userId: saved.userId,
+      title: 'Đặt sân thành công',
+      body: '${saved.venueName} • ${saved.courtName} • ${saved.dateKey} ${saved.timeRange}',
+      type: 'booking',
+    );
     return saved;
+  }
+
+  Future<void> setMaintenanceSlot({
+    required String venueId,
+    required String courtId,
+    required String selectedDateKey,
+    required int startMinutes,
+    required bool maintenance,
+  }) async {
+    final ref = _slotLocksRef.doc('${venueId}_${selectedDateKey}_${courtId}_$startMinutes');
+    await _db.runTransaction((transaction) async {
+      final snapshot = await transaction.get(ref);
+      final status = snapshot.data()?['status']?.toString();
+      if (maintenance) {
+        if (snapshot.exists && status != CourtSlotStatus.blocked) {
+          throw const SlotAlreadyBookedException();
+        }
+        transaction.set(ref, {
+          'bookingId': '', 'venueId': venueId, 'fieldId': courtId,
+          'courtId': courtId, 'dateKey': selectedDateKey,
+          'startMinutes': startMinutes, 'status': CourtSlotStatus.blocked,
+          'userId': '', 'updatedAt': FieldValue.serverTimestamp(),
+          if (!snapshot.exists) 'createdAt': FieldValue.serverTimestamp(),
+        });
+      } else if (snapshot.exists && status == CourtSlotStatus.blocked) {
+        transaction.delete(ref);
+      }
+    });
   }
 
   Future<void> cancelBooking(String bookingId) async {
@@ -619,6 +672,9 @@ class BookingFirestoreService {
         booking.scheduledStart == null ||
         booking.scheduledEnd == null) {
       throw ArgumentError('Khung giờ đặt sân không hợp lệ.');
+    }
+    if (!booking.scheduledStart!.isAfter(DateTime.now())) {
+      throw ArgumentError('Booking time must be in the future.');
     }
     if (booking.participants < 1 || booking.totalPrice < 0) {
       throw ArgumentError('Số người chơi hoặc chi phí không hợp lệ.');

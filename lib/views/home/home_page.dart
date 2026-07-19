@@ -6,6 +6,7 @@ import '../../models/venue.dart';
 import '../../providers/booking_providers.dart';
 import '../../providers/firebase_providers.dart';
 import '../../providers/registration_providers.dart';
+import '../../providers/notification_providers.dart';
 import '../../core/utils/venue_filter.dart';
 import 'widgets/widgets.dart';
 
@@ -44,6 +45,9 @@ class _HomePageState extends ConsumerState<HomePage> {
     final address = user?.address.trim();
     final avatarUrl = user?.avatarUrl.trim();
     final venuesAsync = ref.watch(publicVenuesProvider);
+    final unreadNotifications = ref.watch(userNotificationsProvider)
+        .valueOrNull
+        ?.any((notification) => !notification.read) ?? false;
     final firebaseUser = ref.watch(firebaseAuthStateProvider).valueOrNull;
     final favoriteIds = firebaseUser == null
         ? const <String>{}
@@ -64,6 +68,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ? 'Chưa cập nhật địa chỉ'
                   : address,
               avatarUrl: avatarUrl ?? '',
+              hasNotification: unreadNotifications,
+              onNotificationsTap: () => widget.onNav('notifications'),
             ),
             Expanded(
               child: SingleChildScrollView(

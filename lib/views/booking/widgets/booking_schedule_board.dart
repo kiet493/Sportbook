@@ -8,7 +8,7 @@ class BookingScheduleBoard extends StatelessWidget {
   final Map<String, Set<int>> availableSlotsByCourt;
   final int durationMinutes;
   final int minimumStartMinutes;
-  final CourtSlotSelection? selection;
+  final Set<String> selectedSlotKeys;
   final ValueChanged<CourtSlotSelection> onSelected;
   final ValueChanged<String> onUnavailableTap;
 
@@ -19,7 +19,7 @@ class BookingScheduleBoard extends StatelessWidget {
     required this.availableSlotsByCourt,
     required this.durationMinutes,
     required this.minimumStartMinutes,
-    required this.selection,
+    required this.selectedSlotKeys,
     required this.onSelected,
     required this.onUnavailableTap,
   });
@@ -70,7 +70,7 @@ class BookingScheduleBoard extends StatelessWidget {
                         availableSlotsByCourt[court.id] ?? slots.toSet(),
                     durationMinutes: durationMinutes,
                     minimumStartMinutes: minimumStartMinutes,
-                    selection: selection,
+                    selectedSlotKeys: selectedSlotKeys,
                     onSelected: onSelected,
                     onUnavailableTap: onUnavailableTap,
                   ),
@@ -96,7 +96,7 @@ class _LegendBar extends StatelessWidget {
         children: [
           _LegendItem(color: Colors.white, label: 'Trong'),
           _LegendItem(color: Color(0xFFEF4444), label: 'Da dat'),
-          _LegendItem(color: Color(0xFF9CA3AF), label: 'Khoa'),
+          _LegendItem(color: Color(0xFF9CA3AF), label: 'Bao tri'),
           _LegendItem(color: Color(0xFFC084FC), label: 'Su kien'),
         ],
       ),
@@ -176,7 +176,7 @@ class _CourtRow extends StatelessWidget {
   final Set<int> availableSlots;
   final int durationMinutes;
   final int minimumStartMinutes;
-  final CourtSlotSelection? selection;
+  final Set<String> selectedSlotKeys;
   final ValueChanged<CourtSlotSelection> onSelected;
   final ValueChanged<String> onUnavailableTap;
 
@@ -187,7 +187,7 @@ class _CourtRow extends StatelessWidget {
     required this.availableSlots,
     required this.durationMinutes,
     required this.minimumStartMinutes,
-    required this.selection,
+    required this.selectedSlotKeys,
     required this.onSelected,
     required this.onUnavailableTap,
   });
@@ -226,10 +226,7 @@ class _CourtRow extends StatelessWidget {
             availableSlots: availableSlots,
             durationMinutes: durationMinutes,
             minimumStartMinutes: minimumStartMinutes,
-            selected:
-                selection?.court.id == court.id &&
-                minute >= (selection?.startMinutes ?? -1) &&
-                minute < (selection?.startMinutes ?? -1) + durationMinutes,
+            selected: selectedSlotKeys.contains('${court.id}_$minute'),
             onSelected: onSelected,
             onUnavailableTap: onUnavailableTap,
           ),

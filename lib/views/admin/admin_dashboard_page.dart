@@ -12,6 +12,7 @@ import 'manage_news_page.dart';
 import 'manage_policies_page.dart';
 import 'manage_users_page.dart';
 import 'manage_venues_page.dart';
+import 'manage_maintenance_page.dart';
 import 'statistics_page.dart';
 
 enum _AdminSection {
@@ -19,6 +20,7 @@ enum _AdminSection {
   users,
   venues,
   bookings,
+  maintenance,
   equipment,
   consumables,
   news,
@@ -45,6 +47,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
       _AdminSection.users => ManageUsersPage(onBack: _showDashboard),
       _AdminSection.venues => ManageVenuesPage(onBack: _showDashboard),
       _AdminSection.bookings => AdminBookingsPage(onBack: _showDashboard),
+      _AdminSection.maintenance => ManageMaintenancePage(onBack: _showDashboard),
       _AdminSection.equipment => ManageEquipmentPage(onBack: _showDashboard),
       _AdminSection.consumables => ManageConsumablesPage(
         onBack: _showDashboard,
@@ -56,6 +59,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
         onOpenUsers: () => _open(_AdminSection.users),
         onOpenVenues: () => _open(_AdminSection.venues),
         onOpenBookings: () => _open(_AdminSection.bookings),
+        onOpenMaintenance: () => _open(_AdminSection.maintenance),
         onOpenEquipment: () => _open(_AdminSection.equipment),
         onOpenConsumables: () => _open(_AdminSection.consumables),
         onOpenNews: () => _open(_AdminSection.news),
@@ -113,6 +117,7 @@ class _DashboardHome extends ConsumerWidget {
   final VoidCallback onOpenUsers;
   final VoidCallback onOpenVenues;
   final VoidCallback onOpenBookings;
+  final VoidCallback onOpenMaintenance;
   final VoidCallback onOpenEquipment;
   final VoidCallback onOpenConsumables;
   final VoidCallback onOpenNews;
@@ -125,6 +130,7 @@ class _DashboardHome extends ConsumerWidget {
     required this.onOpenUsers,
     required this.onOpenVenues,
     required this.onOpenBookings,
+    required this.onOpenMaintenance,
     required this.onOpenEquipment,
     required this.onOpenConsumables,
     required this.onOpenNews,
@@ -259,6 +265,14 @@ class _DashboardHome extends ConsumerWidget {
                 subtitle: 'Xem booking của toàn bộ người dùng',
                 color: const Color(0xFF7C3AED),
                 onTap: onOpenBookings,
+              ),
+              const SizedBox(height: 10),
+              _AdminActionCard(
+                icon: Icons.construction_outlined,
+                title: 'Quản lý giờ bảo trì',
+                subtitle: 'Khóa hoặc mở từng ô giờ của sân',
+                color: const Color(0xFF6B7280),
+                onTap: onOpenMaintenance,
               ),
               const SizedBox(height: 10),
               _AdminActionCard(
