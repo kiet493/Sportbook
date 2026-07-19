@@ -49,6 +49,12 @@ service cloud.firestore {
       ).data;
     }
 
+    function selectedBooking(bookingId) {
+      return get(
+        /databases/$(database)/documents/bookings/$(bookingId)
+      ).data;
+    }
+
     function selectedCourt(fieldId) {
       return get(
         /databases/$(database)/documents/sportFields/$(fieldId)
@@ -127,15 +133,9 @@ service cloud.firestore {
           && request.resource.data.userId == resource.data.userId
           && (
             (request.resource.data.status == 'cancelled'
+              && resource.data.paymentStatus != 'pending'
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                 'status',
-                'updatedAt'
-              ]))
-            || (request.resource.data.paymentStatus == 'paid'
-              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-                'paymentStatus',
-                'paymentMethod',
-                'paymentId',
                 'updatedAt'
               ]))
           )
@@ -200,14 +200,12 @@ service cloud.firestore {
 
     match /payments/{paymentId} {
       allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
-      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAdmin();
+      allow write: if isAdmin();
     }
 
     match /transactions/{transactionId} {
       allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
-      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAdmin();
+      allow write: if isAdmin();
     }
 
     match /events/{eventId} {
@@ -273,7 +271,29 @@ service cloud.firestore {
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.memberCount == 1
         && request.resource.data.maxMembers >= 2
-        && request.resource.data.status == 'open';
+        && request.resource.data.status == 'open'
+        && request.resource.data.bookingId is string
+        && request.resource.data.venueId is string
+        && request.resource.data.fieldId is string
+        && request.resource.data.venueName is string
+        && request.resource.data.courtName is string
+        && request.resource.data.playAt is timestamp
+        && selectedBooking(request.resource.data.bookingId).userId
+          == request.auth.uid
+        && selectedBooking(request.resource.data.bookingId).status
+          == 'booked'
+        && selectedBooking(request.resource.data.bookingId).venueId
+          == request.resource.data.venueId
+        && selectedBooking(request.resource.data.bookingId).fieldId
+          == request.resource.data.fieldId
+        && selectedBooking(request.resource.data.bookingId).venueName
+          == request.resource.data.venueName
+        && selectedBooking(request.resource.data.bookingId).courtName
+          == request.resource.data.courtName
+        && selectedBooking(request.resource.data.bookingId).scheduledStart
+          == request.resource.data.playAt
+        && selectedBooking(request.resource.data.bookingId).scheduledStart
+          > request.time;
       allow update: if isAdmin()
         || (
           signedIn()

@@ -31,9 +31,6 @@ class MatchmakingListPage extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_ios_new),
         ),
         title: const Text('Phòng ghép thể thao'),
-        actions: [
-          TextButton(onPressed: onOpenEvents, child: const Text('Sự kiện')),
-        ],
       ),
       body: rooms.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -61,7 +58,7 @@ class MatchmakingListPage extends ConsumerWidget {
                         style: const TextStyle(fontWeight: FontWeight.w900),
                       ),
                       subtitle: Text(
-                        '${room.venueName}\n${formatCommunityDate(room.playAt)} · ${room.skillLevel}',
+                        '${_roomLocation(room)}\n${formatCommunityDate(room.playAt)} · ${room.skillLevel}',
                       ),
                       isThreeLine: true,
                       trailing: Icon(
@@ -80,6 +77,10 @@ class MatchmakingListPage extends ConsumerWidget {
     );
   }
 }
+
+String _roomLocation(MatchmakingRoom room) => room.courtName.trim().isEmpty
+    ? room.venueName
+    : '${room.venueName} · ${room.courtName}';
 
 String _roomLoadError(Object error) {
   if (error is FirebaseAuthRequiredException) return error.toString();

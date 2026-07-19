@@ -64,6 +64,11 @@ class EventDetailPage extends StatelessWidget {
             label: 'Số người',
             value: '${event.registeredCount}/${event.capacity}',
           ),
+          _DetailRow(
+            icon: Icons.person_outline,
+            label: 'Người tạo',
+            value: eventCreatorName(event),
+          ),
           const SizedBox(height: 18),
           const Text(
             'Giới thiệu',

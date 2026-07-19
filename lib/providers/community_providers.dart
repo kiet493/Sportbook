@@ -39,14 +39,14 @@ final matchmakingRoomsProvider = StreamProvider<List<MatchmakingRoom>>((ref) {
 
 final matchmakingMembersProvider =
     StreamProvider.family<List<MatchmakingMember>, String>((ref, roomId) {
-  final auth = ref.watch(firebaseAuthStateProvider);
-  if (auth.isLoading) return const Stream<List<MatchmakingMember>>.empty();
-  if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
-  if (auth.valueOrNull == null) {
-    return Stream.error(const FirebaseAuthRequiredException());
-  }
-  return ref.watch(communityRepositoryProvider).watchMembers(roomId);
-});
+      final auth = ref.watch(firebaseAuthStateProvider);
+      if (auth.isLoading) return const Stream<List<MatchmakingMember>>.empty();
+      if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
+      if (auth.valueOrNull == null) {
+        return Stream.error(const FirebaseAuthRequiredException());
+      }
+      return ref.watch(communityRepositoryProvider).watchMembers(roomId);
+    });
 
 class CommunityActionNotifier extends AsyncNotifier<void> {
   @override
@@ -54,7 +54,11 @@ class CommunityActionNotifier extends AsyncNotifier<void> {
 
   Future<String?> registerEvent(SportEvent event) {
     final user = _authenticatedSessionUser();
-    if (user == null) return Future.value('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+    if (user == null) {
+      return Future.value(
+        'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+      );
+    }
     return _execute(
       () => ref.read(communityRepositoryProvider).registerEvent(event, user),
     );
@@ -62,7 +66,11 @@ class CommunityActionNotifier extends AsyncNotifier<void> {
 
   Future<String?> joinRoom(MatchmakingRoom room) {
     final user = _authenticatedSessionUser();
-    if (user == null) return Future.value('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+    if (user == null) {
+      return Future.value(
+        'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+      );
+    }
     return _execute(
       () => ref.read(communityRepositoryProvider).joinRoom(room, user),
     );
@@ -112,8 +120,8 @@ class CommunityActionNotifier extends AsyncNotifier<void> {
 
 final communityActionProvider =
     AsyncNotifierProvider<CommunityActionNotifier, void>(
-  CommunityActionNotifier.new,
-);
+      CommunityActionNotifier.new,
+    );
 
 class CreateMatchmakingNotifier extends AsyncNotifier<MatchmakingRoom?> {
   @override
@@ -137,6 +145,9 @@ class CreateMatchmakingNotifier extends AsyncNotifier<MatchmakingRoom?> {
     } on CommunityValidationException catch (error) {
       state = const AsyncData(null);
       return error.message;
+    } on MatchmakingBookingRequiredException catch (error) {
+      state = const AsyncData(null);
+      return error.message;
     } on FirebaseException catch (error, stackTrace) {
       debugPrint('Firestore error code: ${error.code}');
       debugPrint('Firestore error message: ${error.message}');
@@ -154,13 +165,15 @@ class CreateMatchmakingNotifier extends AsyncNotifier<MatchmakingRoom?> {
 
 final createMatchmakingProvider =
     AsyncNotifierProvider<CreateMatchmakingNotifier, MatchmakingRoom?>(
-  CreateMatchmakingNotifier.new,
-);
+      CreateMatchmakingNotifier.new,
+    );
 
-String communityFirestoreErrorMessage(FirebaseException error) => switch (error.code) {
-  'permission-denied' => 'Bạn không có quyền thực hiện thao tác này.',
-  'unauthenticated' => 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
-  'unavailable' => 'Không thể kết nối Firebase. Vui lòng thử lại.',
-  'not-found' => 'Dữ liệu không còn tồn tại.',
-  _ => error.message ?? 'Firebase gặp lỗi (${error.code}).',
-};
+String communityFirestoreErrorMessage(FirebaseException error) =>
+    switch (error.code) {
+      'permission-denied' => 'Bạn không có quyền thực hiện thao tác này.',
+      'unauthenticated' =>
+        'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+      'unavailable' => 'Không thể kết nối Firebase. Vui lòng thử lại.',
+      'not-found' => 'Dữ liệu không còn tồn tại.',
+      _ => error.message ?? 'Firebase gặp lỗi (${error.code}).',
+    };

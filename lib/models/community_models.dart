@@ -11,6 +11,7 @@ class SportEvent {
   final int registeredCount;
   final bool active;
   final String createdBy;
+  final String creatorName;
   final String fieldId;
   final String bookingId;
   final DateTime deadline;
@@ -34,6 +35,7 @@ class SportEvent {
     required this.registeredCount,
     required this.active,
     required this.createdBy,
+    this.creatorName = '',
     this.fieldId = '',
     this.bookingId = '',
     DateTime? deadline,
@@ -60,6 +62,7 @@ class SportEvent {
     registeredCount: registeredCount ?? this.registeredCount,
     active: active,
     createdBy: createdBy,
+    creatorName: creatorName,
     fieldId: fieldId,
     bookingId: bookingId,
     deadline: deadline,
@@ -84,6 +87,7 @@ class SportEvent {
     'registeredCount': registeredCount,
     'isActive': active,
     'createdBy': createdBy,
+    'creatorName': creatorName,
     'fieldId': fieldId,
     'bookingId': bookingId,
     'deadline': deadline,
@@ -106,18 +110,35 @@ class SportEvent {
       id: _string(json['_id'], fallbackId),
       title: _string(json['title'] ?? json['name'], 'Sự kiện thể thao'),
       description: _string(json['description'], ''),
-      sport: _string(json['sport'] ?? json['sportType'] ?? json['type'], 'Cầu lông'),
+      sport: _string(
+        json['sport'] ?? json['sportType'] ?? json['type'],
+        'Cầu lông',
+      ),
       location: _string(json['location'], ''),
       imageUrl: _string(json['imageUrl'], ''),
       startAt: _date(json['startAt'] ?? json['startTime']) ?? now,
-      endAt: _date(json['endAt'] ?? json['endTime']) ?? now.add(const Duration(hours: 2)),
-      capacity: _integer(json['capacity'] ?? json['maxParticipants'] ?? json['maxPlayers'], 1),
+      endAt:
+          _date(json['endAt'] ?? json['endTime']) ??
+          now.add(const Duration(hours: 2)),
+      capacity: _integer(
+        json['capacity'] ?? json['maxParticipants'] ?? json['maxPlayers'],
+        1,
+      ),
       registeredCount: _integer(
-        json['registeredCount'] ?? json['participantCount'] ?? json['participants'],
+        json['registeredCount'] ??
+            json['participantCount'] ??
+            json['participants'],
         _registeredFromAvailableSlots(json),
       ),
       active: _eventIsActive(json),
       createdBy: _string(json['createdBy'], ''),
+      creatorName: _string(
+        json['creatorName'] ??
+            json['createdByName'] ??
+            json['organizerName'] ??
+            json['ownerName'],
+        '',
+      ),
       fieldId: _string(json['fieldId'], ''),
       bookingId: _string(json['bookingId'], ''),
       deadline: _date(json['deadline']) ?? now,
@@ -181,6 +202,10 @@ class EventRegistration {
 
 class MatchmakingRoom {
   final String id;
+  final String bookingId;
+  final String venueId;
+  final String courtId;
+  final String courtName;
   final String title;
   final String sport;
   final String venueName;
@@ -195,6 +220,10 @@ class MatchmakingRoom {
 
   const MatchmakingRoom({
     required this.id,
+    this.bookingId = '',
+    this.venueId = '',
+    this.courtId = '',
+    this.courtName = '',
     required this.title,
     required this.sport,
     required this.venueName,
@@ -213,6 +242,10 @@ class MatchmakingRoom {
 
   MatchmakingRoom copyWith({String? id, int? memberCount}) => MatchmakingRoom(
     id: id ?? this.id,
+    bookingId: bookingId,
+    venueId: venueId,
+    courtId: courtId,
+    courtName: courtName,
     title: title,
     sport: sport,
     venueName: venueName,
@@ -228,6 +261,11 @@ class MatchmakingRoom {
 
   Map<String, dynamic> toJson() => {
     '_id': id,
+    'bookingId': bookingId,
+    'venueId': venueId,
+    'fieldId': courtId,
+    'courtId': courtId,
+    'courtName': courtName,
     'title': title,
     'sport': sport,
     'venueName': venueName,
@@ -246,6 +284,10 @@ class MatchmakingRoom {
     required String fallbackId,
   }) => MatchmakingRoom(
     id: _string(json['_id'], fallbackId),
+    bookingId: _string(json['bookingId'], ''),
+    venueId: _string(json['venueId'], ''),
+    courtId: _string(json['fieldId'] ?? json['courtId'], ''),
+    courtName: _string(json['courtName'], ''),
     title: _string(json['title'], 'Phòng ghép cầu lông'),
     sport: _string(json['sport'], 'Cầu lông'),
     venueName: _string(json['venueName'], ''),

@@ -69,7 +69,7 @@ class _MatchmakingDetailPageState extends ConsumerState<MatchmakingDetailPage> {
                 ListTile(
                   leading: const Icon(Icons.location_on_outlined),
                   title: const Text('Địa điểm'),
-                  subtitle: Text(widget.room.venueName),
+                  subtitle: Text(_roomLocation(widget.room)),
                 ),
                 ListTile(
                   leading: const Icon(Icons.schedule),
@@ -137,3 +137,7 @@ class _MatchmakingDetailPageState extends ConsumerState<MatchmakingDetailPage> {
     );
   }
 }
+
+String _roomLocation(MatchmakingRoom room) => room.courtName.trim().isEmpty
+    ? room.venueName
+    : '${room.venueName} · ${room.courtName}';

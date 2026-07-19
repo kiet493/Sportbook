@@ -38,6 +38,13 @@ class CommunityRepository {
     required MatchmakingRoom room,
     required UserModel creator,
   }) {
+    if (room.bookingId.isEmpty ||
+        room.venueId.isEmpty ||
+        room.courtId.isEmpty) {
+      throw const CommunityValidationException(
+        'Bạn phải chọn sân và khung giờ từ lịch đã đặt.',
+      );
+    }
     if (room.title.trim().isEmpty || room.venueName.trim().isEmpty) {
       throw const CommunityValidationException(
         'Tên phòng và địa điểm không được để trống.',

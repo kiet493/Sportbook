@@ -1,0 +1,53 @@
+import '../models/court_booking.dart';
+import '../models/payment_models.dart';
+import '../services/Firebase/payment_firestore_service.dart';
+
+class PaymentValidationException implements Exception {
+  final String message;
+
+  const PaymentValidationException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+class PaymentRepository {
+  final PaymentFirestoreService _service;
+
+  const PaymentRepository(this._service);
+
+  Stream<List<Coupon>> watchCoupons() => _service.watchCoupons();
+
+  Stream<List<PaymentTransaction>> watchTransactions(String userId) =>
+      _service.watchTransactions(userId);
+
+  Stream<PaymentTransaction?> watchTransaction(String transactionId) =>
+      _service.watchTransaction(transactionId);
+
+  Stream<VnpayPaymentStatus?> watchPayment(String paymentId) =>
+      _service.watchPayment(paymentId);
+
+  Future<VnpayPaymentSession> createVnpayPayment({
+    required CourtBooking booking,
+    Coupon? coupon,
+  }) {
+    if (booking.id.isEmpty || booking.totalPrice <= 0) {
+      throw const PaymentValidationException(
+        'Thông tin booking không hợp lệ để thanh toán.',
+      );
+    }
+    if (booking.status == CourtSlotStatus.cancelled) {
+      throw const PaymentValidationException(
+        'Không thể thanh toán booking đã hủy.',
+      );
+    }
+    if (coupon != null &&
+        !coupon.isApplicableTo(booking.totalPrice, DateTime.now())) {
+      throw const PaymentValidationException('Mã giảm giá không còn hợp lệ.');
+    }
+    return _service.createVnpayPayment(
+      bookingId: booking.id,
+      couponId: coupon?.id,
+    );
+  }
+}

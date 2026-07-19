@@ -14,16 +14,23 @@ void main() {
       'capacity': 16,
       'registeredCount': 16,
       'isActive': true,
+      'createdBy': 'admin-1',
+      'creatorName': 'Quản trị viên SportBook',
     }, fallbackId: 'fallback');
 
     expect(event.id, 'event-1');
     expect(event.isFull, isTrue);
     expect(event.toJson()['registeredCount'], 16);
+    expect(event.creatorName, 'Quản trị viên SportBook');
   });
 
   test('matchmaking room reports open slots', () {
     final room = MatchmakingRoom(
       id: 'room-1',
+      bookingId: 'booking-1',
+      venueId: 'venue-1',
+      courtId: 'court-1',
+      courtName: 'Sân số 1',
       title: 'Tìm đôi đánh cầu',
       sport: 'Cầu lông',
       venueName: 'Sân A',
@@ -40,6 +47,15 @@ void main() {
     expect(room.isOpen, isTrue);
     expect(room.isFull, isFalse);
     expect(room.copyWith(memberCount: 4).isFull, isTrue);
+    expect(room.toJson()['bookingId'], 'booking-1');
+    expect(room.toJson()['fieldId'], 'court-1');
+
+    final restored = MatchmakingRoom.fromJson(
+      room.toJson(),
+      fallbackId: 'fallback-room',
+    );
+    expect(restored.venueId, 'venue-1');
+    expect(restored.courtName, 'Sân số 1');
   });
 
   test('admin inventory model round-trips Firebase fields', () {

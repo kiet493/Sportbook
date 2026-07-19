@@ -28,13 +28,6 @@ class EventListPage extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_ios_new),
         ),
         title: const Text('Sự kiện thể thao'),
-        actions: [
-          TextButton.icon(
-            onPressed: onOpenMatchmaking,
-            icon: const Icon(Icons.groups_outlined),
-            label: const Text('Ghép đội'),
-          ),
-        ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -43,10 +36,8 @@ class EventListPage extends ConsumerWidget {
         },
         child: events.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => _MessageList(
-            icon: Icons.cloud_off,
-            text: _eventLoadError(error),
-          ),
+          error: (error, _) =>
+              _MessageList(icon: Icons.cloud_off, text: _eventLoadError(error)),
           data: (items) => items.isEmpty
               ? const _MessageList(
                   icon: Icons.event_busy_outlined,
@@ -141,6 +132,11 @@ class _EventCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   _Info(icon: Icons.location_on_outlined, text: event.location),
+                  const SizedBox(height: 6),
+                  _Info(
+                    icon: Icons.person_outline,
+                    text: 'Người tạo: ${eventCreatorName(event)}',
+                  ),
                 ],
               ),
             ),
@@ -183,6 +179,12 @@ class _MessageList extends StatelessWidget {
       Text(text, textAlign: TextAlign.center),
     ],
   );
+}
+
+String eventCreatorName(SportEvent event) {
+  if (event.creatorName.trim().isNotEmpty) return event.creatorName.trim();
+  if (event.createdBy.trim().isNotEmpty) return event.createdBy.trim();
+  return 'Ban tổ chức SportBook';
 }
 
 String formatCommunityDate(DateTime date) {

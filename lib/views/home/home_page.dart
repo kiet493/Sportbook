@@ -26,14 +26,15 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  String _activeFeature = 'Sân trong nhà';
   String _activeFilter = 'Tất cả';
   Future<void> _toggleFavorite(Venue venue) async {
     final message = await ref
         .read(favoriteToggleProvider.notifier)
         .toggle(venue.firestoreId);
     if (!mounted || message == null) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -47,7 +48,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final favoriteIds = firebaseUser == null
         ? const <String>{}
         : ref.watch(favoriteVenueIdsProvider(firebaseUser.uid)).valueOrNull ??
-            const <String>{};
+              const <String>{};
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
@@ -75,29 +76,44 @@ class _HomePageState extends ConsumerState<HomePage> {
                     HomeQuickFilters(
                       filters: const [
                         'Tất cả',
-                        'Gần nhất',
-                        'Giá thấp',
+                        'Sự kiện',
+                        'Ghép đội',
                         'Đánh giá cao',
                         'Mở ngay',
                       ],
                       activeFilter: _activeFilter,
-                      onFilterSelected: (filter) =>
-                          setState(() => _activeFilter = filter),
+                      onFilterSelected: (filter) {
+                        if (filter == 'Sự kiện') {
+                          widget.onNav('events');
+                          return;
+                        }
+                        if (filter == 'Ghép đội') {
+                          widget.onNav('matchmaking');
+                          return;
+                        }
+                        setState(() => _activeFilter = filter);
+                      },
                     ),
                     venuesAsync.when(
                       data: (venues) {
                         final filtered = filterVenues(venues, _homeFilter);
                         return filtered.isEmpty
-                          ? const _HomeVenuesMessage(
-                              message:
-                                  'Chưa có dữ liệu sân trên Firebase.',
-                            )
-                          : HomeNearbySection(
-                              venues: filtered,
-                              favorites: filtered.where((venue) => favoriteIds.contains(venue.firestoreId)).map((venue) => venue.id).toSet(),
-                              onVenueTap: widget.onVenueTap,
-                              onToggleFavorite: _toggleFavorite,
-                            );
+                            ? const _HomeVenuesMessage(
+                                message: 'Chưa có dữ liệu sân trên Firebase.',
+                              )
+                            : HomeNearbySection(
+                                venues: filtered,
+                                favorites: filtered
+                                    .where(
+                                      (venue) => favoriteIds.contains(
+                                        venue.firestoreId,
+                                      ),
+                                    )
+                                    .map((venue) => venue.id)
+                                    .toSet(),
+                                onVenueTap: widget.onVenueTap,
+                                onToggleFavorite: _toggleFavorite,
+                              );
                       },
                       error: (error, _) => _HomeVenuesMessage(
                         message: 'Không tải được dữ liệu sân: $error',
@@ -124,19 +140,13 @@ class _HomePageState extends ConsumerState<HomePage> {
   VenueFilter get _homeFilter {
     final index = const [
       'Tất cả',
-      'Gần nhất',
-      'Giá thấp',
       'Đánh giá cao',
       'Mở ngay',
     ].indexOf(_activeFilter);
     switch (index) {
       case 1:
-        return const VenueFilter(sort: 'Gần nhất');
-      case 2:
-        return const VenueFilter(sort: 'Giá thấp nhất');
-      case 3:
         return const VenueFilter(sort: 'Đánh giá cao');
-      case 4:
+      case 2:
         return const VenueFilter(onlyAvailable: true);
       default:
         return const VenueFilter();

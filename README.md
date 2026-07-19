@@ -258,10 +258,88 @@ View -> Provider/Notifier -> Repository -> Firebase Service -> Firestore/Storage
 - CRUD danh mục chính sách (`policy_categories`) và chính sách (`policies`).
 - Statistics tổng hợp user, sân, booking, giá trị booking, nội dung và kho.
 
-### Ngoài phạm vi
+### Payment + VNPay Sandbox
 
-Module Payment + Coupon + Transaction (Người 3) không được thêm hoặc chỉnh sửa
-trong đợt triển khai này.
+- Thanh toán booking qua VNPay Sandbox, áp dụng coupon và xem lịch sử giao dịch.
+- Backend chạy bằng Firebase Functions v2 Emulator tại region
+  `asia-southeast1`; không cần deploy Functions hoặc nâng Firebase lên Blaze.
+- Khi chạy debug, Flutter kết nối `127.0.0.1:5001` bằng
+  `useFunctionsEmulator(...)`, sau đó gọi `createVnpayPayment` bằng
+  `httpsCallable(...)`; không gọi URL function trực tiếp bằng `http`/`fetch`.
+- `createVnpayPayment` là callable function, tự xử lý preflight `OPTIONS` và chỉ
+  nhận callable `POST`. CORS cho phép Flutter Web chạy bằng `localhost`,
+  `127.0.0.1` và `[::1]`.
+- `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` và `VNPAY_RETURN_URL` chỉ được đọc từ
+  `functions/.env`, không lưu trong Flutter/Dart hoặc commit lên Git.
+- Collection: `payments`, `coupons`, `transactions`. Client chỉ được đọc dữ liệu
+  của chính mình; Cloud Functions xác nhận IPN và cập nhật trạng thái `paid`.
+
+#### Cấu hình VNPay Sandbox
+
+1. Đăng ký merchant test tại <https://sandbox.vnpayment.vn/devreg/> để nhận
+   `vnp_TmnCode` và `vnp_HashSecret`.
+2. Mở `functions/.env` và thay hai giá trị placeholder bằng thông tin Sandbox:
+
+```dotenv
+VNPAY_TMN_CODE=YOUR_SANDBOX_TMN_CODE
+VNPAY_HASH_SECRET=YOUR_SANDBOX_HASH_SECRET
+VNPAY_RETURN_URL=http://localhost:5001/sportbook-e74c7/asia-southeast1/vnpayReturn
+VNPAY_LOCAL_RETURN_UPDATES_PAYMENT=true
+```
+
+Không sửa `functions/.env.example` bằng thông tin thật và không commit
+`functions/.env`.
+
+3. Cài dependency backend nếu chưa cài:
+
+```powershell
+cd D:\Summer2026\PRM393\Sportbook\functions
+npm install
+```
+
+4. Chạy Functions Emulator trong cửa sổ PowerShell thứ nhất và giữ nguyên cửa
+   sổ này trong lúc dùng ứng dụng:
+
+```powershell
+cd D:\Summer2026\PRM393\Sportbook
+npx firebase-tools emulators:start --only functions
+```
+
+5. Chạy Flutter Web trong cửa sổ PowerShell thứ hai:
+
+```powershell
+cd D:\Summer2026\PRM393\Sportbook
+flutter clean
+flutter pub get
+flutter run -d chrome
+```
+
+VNPay IPN trên Internet không thể gọi vào `localhost`. Trong local Sandbox,
+trình duyệt quay về `vnpayReturn`; function này chỉ cập nhật Firestore khi chữ ký,
+mã website và số tiền đều hợp lệ, đồng thời
+`VNPAY_LOCAL_RETURN_UPDATES_PAYMENT=true`. Khi chạy production phải tắt biến này
+để IPN tiếp tục là nguồn xác nhận chính. Dự án không tự cấu hình tunnel hoặc dịch
+vụ trả phí.
+
+Mỗi lần test lại phải tạo giao dịch và URL VNPay mới. Không mở lại URL của giao
+dịch đã hoàn thành hoặc hết hạn vì VNPay có thể trả `Error code=01`.
+
+Thẻ test NCB của VNPay Sandbox:
+
+```text
+Số thẻ:       9704198526191432198
+Tên chủ thẻ:  NGUYEN VAN A
+Ngày phát hành: 07/15
+OTP:          123456
+```
+
+Luồng trạng thái:
+
+```text
+Flutter Web -> Functions Emulator -> createVnpayPayment -> VNPay Sandbox
+VNPay -> trình duyệt -> vnpayReturn -> xác minh HMAC + số tiền
+      -> Firestore transaction -> payment/transaction/booking -> Flutter stream
+```
 
 ## Firebase Rules
 
