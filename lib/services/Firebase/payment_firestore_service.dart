@@ -3,6 +3,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../models/payment_models.dart';
+import '../../models/court_booking.dart';
+import '../../models/community_models.dart';
 import 'firebase_functions_client.dart' as functions_client;
 
 class VnpayCallableException implements Exception {
@@ -76,6 +78,158 @@ class PaymentFirestoreService {
             ? VnpayPaymentStatus.fromJson(snapshot.data()!, snapshot.id)
             : null,
       );
+
+  Future<PaymentTransaction> payWithWallet({
+    required String userId,
+    required List<CourtBooking> bookings,
+  }) async {
+    final userRef = _db.collection('users').doc(userId);
+    final bookingRefs = [
+      for (final booking in bookings)
+        _db.collection('bookings').doc(booking.id),
+    ];
+    final transactionRef = _db.collection('transactions').doc();
+    final user = await userRef.get();
+    final balance = (user.data()?['walletBalance'] as num?)?.round() ?? 0;
+    final amount = bookings.fold<int>(
+      0,
+      (total, booking) => total + booking.totalPrice,
+    );
+    if (balance < amount) throw StateError('Số dư ví không đủ.');
+    final batch = _db.batch();
+    for (final ref in bookingRefs) {
+      final snapshot = await ref.get();
+      if (!snapshot.exists || snapshot.data()?['userId'] != userId) {
+        throw StateError('Booking không hợp lệ.');
+      }
+      batch.update(ref, {
+        'paymentStatus': 'paid',
+        'paymentMethod': 'wallet',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+    batch.update(userRef, {
+      'walletBalance': balance - amount,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    final result = PaymentTransaction(
+      id: transactionRef.id,
+      bookingId: bookings.first.id,
+      userId: userId,
+      amount: amount,
+      discount: 0,
+      method: 'wallet',
+      status: 'paid',
+      couponCode: '',
+      createdAt: DateTime.now(),
+    );
+    batch.set(transactionRef, {
+      'userId': userId,
+      'bookingId': bookings.first.id,
+      'bookingIds': bookings.map((item) => item.id).toList(),
+      'amount': amount,
+      'discount': 0,
+      'method': 'wallet',
+      'status': 'paid',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+    return result;
+  }
+
+  Future<PaymentTransaction> payEventWithWallet({
+    required String userId,
+    required SportEvent event,
+  }) async {
+    final userRef = _db.collection('users').doc(userId);
+    final eventRef = _db.collection('events').doc(event.id);
+    final transactionRef = _db.collection('transactions').doc();
+    return _db.runTransaction((transaction) async {
+      final userSnapshot = await transaction.get(userRef);
+      final eventSnapshot = await transaction.get(eventRef);
+      final eventData = eventSnapshot.data();
+      if (!eventSnapshot.exists ||
+          eventData == null ||
+          eventData['createdBy'] != userId ||
+          eventData['status'] != 'pending_payment' ||
+          eventData['paymentStatus'] != 'unpaid') {
+        throw StateError('Đơn sự kiện không hợp lệ.');
+      }
+      final amount = (eventData['estimatedPrice'] as num?)?.round() ?? 0;
+      final balance =
+          (userSnapshot.data()?['walletBalance'] as num?)?.round() ?? 0;
+      if (amount <= 0 || balance < amount) {
+        throw StateError('Số dư ví không đủ.');
+      }
+      transaction.update(userRef, {
+        'walletBalance': balance - amount,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      transaction.update(eventRef, {
+        'paymentStatus': 'paid',
+        'paymentMethod': 'wallet',
+        'status': 'open',
+        'isActive': true,
+        'paidAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      transaction.set(transactionRef, {
+        '_id': transactionRef.id,
+        'userId': userId,
+        'bookingId': event.id,
+        'eventId': event.id,
+        'orderType': 'event',
+        'amount': amount,
+        'discount': 0,
+        'method': 'wallet',
+        'status': 'paid',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      return PaymentTransaction(
+        id: transactionRef.id,
+        bookingId: event.id,
+        userId: userId,
+        amount: amount,
+        discount: 0,
+        method: 'wallet',
+        status: 'paid',
+        couponCode: '',
+        createdAt: DateTime.now(),
+      );
+    });
+  }
+
+  Future<VnpayPaymentSession> createEventVnpayPayment({
+    required String eventId,
+    String? couponId,
+  }) async {
+    final normalizedEventId = eventId.trim();
+    if (normalizedEventId.isEmpty) {
+      throw const FormatException('Không xác định được đơn sự kiện.');
+    }
+    try {
+      final callable = _functions.httpsCallable('createVnpayPayment');
+      final result = await callable.call(<String, Object?>{
+        'orderType': 'event',
+        'eventId': normalizedEventId,
+        if (couponId?.trim().isNotEmpty == true) 'couponId': couponId!.trim(),
+      });
+      if (result.data is! Map) {
+        throw const FormatException(
+          'Máy chủ VNPay trả về dữ liệu không hợp lệ.',
+        );
+      }
+      return VnpayPaymentSession.fromJson(
+        Map<String, dynamic>.from(result.data as Map),
+      );
+    } on FirebaseFunctionsException catch (error) {
+      throw VnpayCallableException(
+        code: error.code,
+        message: error.message ?? 'Không thể tạo thanh toán sự kiện.',
+        details: error.details,
+      );
+    }
+  }
 
   Future<VnpayPaymentSession> createVnpayPayment({
     required List<String> bookingIds,

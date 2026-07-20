@@ -297,6 +297,28 @@ class SportCourt {
   }
 }
 
+class BookingAddOn {
+  final String name;
+  final int quantity;
+  final int unitPrice;
+  const BookingAddOn({
+    required this.name,
+    required this.quantity,
+    required this.unitPrice,
+  });
+  int get total => quantity * unitPrice;
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'quantity': quantity,
+    'unitPrice': unitPrice,
+  };
+  factory BookingAddOn.fromJson(Map<String, dynamic> data) => BookingAddOn(
+    name: data['name']?.toString() ?? '',
+    quantity: _readInt(data['quantity']) ?? 0,
+    unitPrice: _readInt(data['unitPrice']) ?? 0,
+  );
+}
+
 class CourtBooking {
   final String id;
   final String venueId;
@@ -313,8 +335,10 @@ class CourtBooking {
   final int participants;
   final String status;
   final String paymentMethod;
+  final String paymentStatus;
   final String notes;
   final DateTime createdAt;
+  final List<BookingAddOn> addOns;
 
   const CourtBooking({
     required this.id,
@@ -332,8 +356,10 @@ class CourtBooking {
     required this.participants,
     required this.status,
     required this.paymentMethod,
+    this.paymentStatus = '',
     required this.notes,
     required this.createdAt,
+    this.addOns = const [],
   });
 
   int get durationMinutes => endMinutes - startMinutes;
@@ -361,8 +387,10 @@ class CourtBooking {
     int? participants,
     String? status,
     String? paymentMethod,
+    String? paymentStatus,
     String? notes,
     DateTime? createdAt,
+    List<BookingAddOn>? addOns,
   }) {
     return CourtBooking(
       id: id ?? this.id,
@@ -380,8 +408,10 @@ class CourtBooking {
       participants: participants ?? this.participants,
       status: status ?? this.status,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
+      addOns: addOns ?? this.addOns,
     );
   }
 
@@ -405,8 +435,10 @@ class CourtBooking {
     'participants': participants,
     'status': status,
     'paymentMethod': paymentMethod,
+    'paymentStatus': paymentStatus,
     'notes': notes,
     'createdAt': createdAt.toIso8601String(),
+    'addOns': addOns.map((item) => item.toJson()).toList(),
   };
 
   factory CourtBooking.fromJson(
@@ -440,8 +472,14 @@ class CourtBooking {
       participants: _readInt(json['participants']) ?? 0,
       status: _readString(json['status']) ?? CourtSlotStatus.booked,
       paymentMethod: _readString(json['paymentMethod']) ?? '',
+      paymentStatus: _readString(json['paymentStatus']) ?? '',
       notes: _readString(json['notes']) ?? '',
       createdAt: _readDate(json['createdAt']) ?? DateTime.now(),
+      addOns: (json['addOns'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => BookingAddOn.fromJson(Map<String, dynamic>.from(item)))
+          .where((item) => item.quantity > 0 && item.name.isNotEmpty)
+          .toList(),
     );
   }
 }
@@ -535,7 +573,8 @@ class CourtSchedule {
     return CourtSchedule(
       id: _readString(json['_id']) ?? _readString(json['id']) ?? fallbackId,
       fieldId: _readString(json['fieldId']) ?? '',
-      dateKey: savedDateKey ?? (rawDate == null ? '' : _scheduleDateKey(rawDate)),
+      dateKey:
+          savedDateKey ?? (rawDate == null ? '' : _scheduleDateKey(rawDate)),
       availableStartMinutes: _readAvailableScheduleSlots(json['timeSlots']),
     );
   }
@@ -588,7 +627,13 @@ int? _minutesFromTimeLabel(String value) {
   if (parts.length != 2) return null;
   final hour = int.tryParse(parts[0]);
   final minute = int.tryParse(parts[1]);
-  if (hour == null || minute == null || hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  if (hour == null ||
+      minute == null ||
+      hour < 0 ||
+      hour > 23 ||
+      minute < 0 ||
+      minute > 59)
+    return null;
   return hour * 60 + minute;
 }
 

@@ -35,12 +35,13 @@ class UserListItem extends ConsumerWidget {
   }
 
   Future<void> _openDetail(BuildContext context, WidgetRef ref) async {
-    final user =
-        await ref.read(manageUsersViewModelProvider.notifier).fetchById(item.id);
+    final user = await ref
+        .read(manageUsersViewModelProvider.notifier)
+        .fetchById(item.id);
     if (!context.mounted || user == null) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => UserDetailPage(user: user)),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => UserDetailPage(user: user)));
   }
 
   Future<bool> _confirmDelete(BuildContext context, WidgetRef ref) async {
@@ -51,15 +52,11 @@ class UserListItem extends ConsumerWidget {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await ref.read(manageUsersViewModelProvider.notifier).delete(item.id);
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Đã xóa tài khoản')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('Đã xóa tài khoản')));
     } on UserValidationException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Không thể xóa: $e')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('Không thể xóa: $e')));
     }
     return false;
   }
@@ -126,10 +123,7 @@ class _UserInfoColumn extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           item.email,
-          style: const TextStyle(
-            fontSize: 12,
-            color: AppColors.textSecondary,
-          ),
+          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -142,6 +136,16 @@ class _UserInfoColumn extends StatelessWidget {
             _RolePill(role: item.role),
           ],
         ),
+        if (item.role == UserRole.staff && item.staffVenueName.isNotEmpty) ...[
+          const SizedBox(height: 5),
+          Text(
+            'Cụm sân: ${item.staffVenueName}',
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
       ],
     );
   }

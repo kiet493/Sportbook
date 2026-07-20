@@ -3,10 +3,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/court_booking.dart';
+import '../models/venue_review.dart';
 import '../models/venue.dart';
 import '../services/Firebase/booking_firestore_service.dart';
 import 'firebase_providers.dart';
 import 'registration_providers.dart';
+import 'notification_providers.dart';
 
 final bookingFirestoreServiceProvider = Provider<BookingFirestoreService>((
   ref,
@@ -31,7 +33,8 @@ final venueCourtsProvider = StreamProvider.family<List<SportCourt>, String>((
   final auth = ref.watch(firebaseAuthStateProvider);
   if (auth.isLoading) return const Stream<List<SportCourt>>.empty();
   if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
-  if (auth.valueOrNull == null) return Stream.error(const FirebaseAuthRequiredException());
+  if (auth.valueOrNull == null)
+    return Stream.error(const FirebaseAuthRequiredException());
   return ref.watch(bookingFirestoreServiceProvider).watchCourts(venueId);
 });
 
@@ -39,7 +42,8 @@ final allSportCourtsProvider = StreamProvider<List<SportCourt>>((ref) {
   final auth = ref.watch(firebaseAuthStateProvider);
   if (auth.isLoading) return const Stream<List<SportCourt>>.empty();
   if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
-  if (auth.valueOrNull == null) return Stream.error(const FirebaseAuthRequiredException());
+  if (auth.valueOrNull == null)
+    return Stream.error(const FirebaseAuthRequiredException());
   return ref.watch(bookingFirestoreServiceProvider).watchAllCourts();
 });
 
@@ -56,12 +60,18 @@ final venueSchedulesProvider =
           .watchSchedulesForDate(selectedDateKey);
     });
 
-final favoriteVenueIdsProvider = StreamProvider.family<Set<String>, String>((ref, userId) {
+final favoriteVenueIdsProvider = StreamProvider.family<Set<String>, String>((
+  ref,
+  userId,
+) {
   final auth = ref.watch(firebaseAuthStateProvider);
   if (auth.isLoading) return const Stream<Set<String>>.empty();
   if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
-  if (auth.valueOrNull?.uid != userId) return Stream.error(const FirebaseAuthRequiredException());
-  return ref.watch(bookingFirestoreServiceProvider).watchFavoriteVenueIds(userId);
+  if (auth.valueOrNull?.uid != userId)
+    return Stream.error(const FirebaseAuthRequiredException());
+  return ref
+      .watch(bookingFirestoreServiceProvider)
+      .watchFavoriteVenueIds(userId);
 });
 
 class FavoriteToggleNotifier extends AsyncNotifier<void> {
@@ -79,10 +89,9 @@ class FavoriteToggleNotifier extends AsyncNotifier<void> {
 
     state = const AsyncLoading();
     try {
-      await ref.read(bookingFirestoreServiceProvider).toggleFavorite(
-            userId: firebaseUser.uid,
-            venueId: venueId,
-          );
+      await ref
+          .read(bookingFirestoreServiceProvider)
+          .toggleFavorite(userId: firebaseUser.uid, venueId: venueId);
       ref.invalidate(favoriteVenueIdsProvider(firebaseUser.uid));
       state = const AsyncData(null);
       return null;
@@ -92,9 +101,11 @@ class FavoriteToggleNotifier extends AsyncNotifier<void> {
       debugPrintStack(stackTrace: stackTrace);
       state = AsyncError(error, stackTrace);
       return switch (error.code) {
-        'permission-denied' => 'Bạn không có quyền thay đổi danh sách yêu thích.',
+        'permission-denied' =>
+          'Bạn không có quyền thay đổi danh sách yêu thích.',
         'unavailable' => 'Không thể kết nối Firebase. Vui lòng thử lại.',
-        'unauthenticated' => 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+        'unauthenticated' =>
+          'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
         _ => error.message ?? 'Không thể cập nhật sân yêu thích.',
       };
     } catch (error, stackTrace) {
@@ -108,15 +119,19 @@ class FavoriteToggleNotifier extends AsyncNotifier<void> {
 
 final favoriteToggleProvider =
     AsyncNotifierProvider<FavoriteToggleNotifier, void>(
-  FavoriteToggleNotifier.new,
-);
+      FavoriteToggleNotifier.new,
+    );
 
 final publicVenuesProvider = Provider<AsyncValue<List<Venue>>>((ref) {
   final auth = ref.watch(firebaseAuthStateProvider);
   if (auth.isLoading) return const AsyncLoading();
-  if (auth.hasError) return AsyncError(auth.error!, auth.stackTrace ?? StackTrace.current);
+  if (auth.hasError)
+    return AsyncError(auth.error!, auth.stackTrace ?? StackTrace.current);
   if (auth.valueOrNull == null) {
-    return AsyncError(const FirebaseAuthRequiredException(), StackTrace.current);
+    return AsyncError(
+      const FirebaseAuthRequiredException(),
+      StackTrace.current,
+    );
   }
   final venuesAsync = ref.watch(managedVenuesProvider);
   final courtsAsync = ref.watch(allSportCourtsProvider);
@@ -163,57 +178,98 @@ final venueBookingsProvider =
       final auth = ref.watch(firebaseAuthStateProvider);
       if (auth.isLoading) return const Stream<List<CourtBooking>>.empty();
       if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
-      if (auth.valueOrNull == null) return Stream.error(const FirebaseAuthRequiredException());
+      if (auth.valueOrNull == null)
+        return Stream.error(const FirebaseAuthRequiredException());
       return ref
           .watch(bookingFirestoreServiceProvider)
           .watchBookings(venueId: query.venueId, date: query.dateKey);
     });
 
-final userBookingsProvider =
-    StreamProvider.family<List<CourtBooking>, String>((ref, userId) {
-      final auth = ref.watch(firebaseAuthStateProvider);
-      if (auth.isLoading) return const Stream<List<CourtBooking>>.empty();
-      if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
-      if (auth.valueOrNull?.uid != userId) return Stream.error(const FirebaseAuthRequiredException());
-      return ref
-          .watch(bookingFirestoreServiceProvider)
-          .watchUserBookings(userId);
-    });
+final venueTodayAvailabilityProvider = StreamProvider.family<bool, String>((
+  ref,
+  venueId,
+) {
+  final auth = ref.watch(firebaseAuthStateProvider);
+  if (auth.valueOrNull == null) return Stream.value(false);
+  return ref
+      .watch(bookingFirestoreServiceProvider)
+      .watchVenueHasAvailableSlot(venueId, dateKey(DateTime.now()));
+});
+
+final userBookingsProvider = StreamProvider.family<List<CourtBooking>, String>((
+  ref,
+  userId,
+) {
+  final auth = ref.watch(firebaseAuthStateProvider);
+  if (auth.isLoading) return const Stream<List<CourtBooking>>.empty();
+  if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
+  if (auth.valueOrNull?.uid != userId)
+    return Stream.error(const FirebaseAuthRequiredException());
+  return ref.watch(bookingFirestoreServiceProvider).watchUserBookings(userId);
+});
 
 final adminBookingsProvider = StreamProvider<List<CourtBooking>>((ref) {
   final auth = ref.watch(firebaseAuthStateProvider);
   if (auth.isLoading) return const Stream<List<CourtBooking>>.empty();
   if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
-  if (auth.valueOrNull == null) return Stream.error(const FirebaseAuthRequiredException());
+  if (auth.valueOrNull == null)
+    return Stream.error(const FirebaseAuthRequiredException());
   return ref.watch(bookingFirestoreServiceProvider).watchAllBookings();
 });
 
-final currentUserBookingInfosProvider =
-    Provider<AsyncValue<List<BookingInfo>>>((ref) {
+final staffVenueBookingsProvider =
+    StreamProvider.family<List<CourtBooking>, String>((ref, venueId) {
+      final auth = ref.watch(firebaseAuthStateProvider);
       final session = ref.watch(sessionProvider);
-      if (session == null) return const AsyncData([]);
-
-      final bookingsAsync = ref.watch(userBookingsProvider(session.user.id));
-      if (bookingsAsync.hasError) {
-        return AsyncError(
-          bookingsAsync.error!,
-          bookingsAsync.stackTrace ?? StackTrace.current,
-        );
+      if (auth.isLoading) return const Stream<List<CourtBooking>>.empty();
+      if (auth.hasError) return Stream.error(auth.error!, auth.stackTrace);
+      final user = session?.user;
+      if (auth.valueOrNull == null ||
+          user == null ||
+          (!user.isAdmin && (!user.isStaff || user.staffVenueId != venueId))) {
+        return Stream.error(const FirebaseAuthRequiredException());
       }
-
-      final bookings = bookingsAsync.valueOrNull;
-      if (bookings == null) return const AsyncLoading();
-      final venues = ref.watch(publicVenuesProvider).valueOrNull ?? const [];
-      return AsyncData([
-        for (final booking in bookings)
-          bookingInfoFromCourtBooking(
-            booking,
-            venue: venues
-                .where((venue) => venue.firestoreId == booking.venueId)
-                .firstOrNull,
-          ),
-      ]);
+      return ref
+          .watch(bookingFirestoreServiceProvider)
+          .watchVenueBookingHistory(venueId);
     });
+
+final venueReviewsProvider = StreamProvider.family<List<VenueReview>, String>((
+  ref,
+  venueId,
+) {
+  final auth = ref.watch(firebaseAuthStateProvider);
+  if (auth.valueOrNull == null) return const Stream<List<VenueReview>>.empty();
+  return ref.watch(bookingFirestoreServiceProvider).watchVenueReviews(venueId);
+});
+
+final currentUserBookingInfosProvider = Provider<AsyncValue<List<BookingInfo>>>(
+  (ref) {
+    final session = ref.watch(sessionProvider);
+    if (session == null) return const AsyncData([]);
+
+    final bookingsAsync = ref.watch(userBookingsProvider(session.user.id));
+    if (bookingsAsync.hasError) {
+      return AsyncError(
+        bookingsAsync.error!,
+        bookingsAsync.stackTrace ?? StackTrace.current,
+      );
+    }
+
+    final bookings = bookingsAsync.valueOrNull;
+    if (bookings == null) return const AsyncLoading();
+    final venues = ref.watch(publicVenuesProvider).valueOrNull ?? const [];
+    return AsyncData([
+      for (final booking in bookings)
+        bookingInfoFromCourtBooking(
+          booking,
+          venue: venues
+              .where((venue) => venue.firestoreId == booking.venueId)
+              .firstOrNull,
+        ),
+    ]);
+  },
+);
 
 class BookingSubmitNotifier extends AsyncNotifier<CourtBooking?> {
   @override
@@ -260,9 +316,25 @@ class BookingCancelNotifier extends AsyncNotifier<void> {
   Future<String?> cancel(String bookingId) async {
     state = const AsyncLoading();
     try {
-      await ref
+      final refund = await ref
           .read(bookingFirestoreServiceProvider)
           .cancelBooking(bookingId);
+      final session = ref.read(sessionProvider);
+      if (session != null) {
+        final updatedUser = session.user.copyWith(
+          walletBalance: session.user.walletBalance + refund,
+        );
+        ref.read(sessionProvider.notifier).setUser(updatedUser);
+        await ref
+            .read(notificationFirestoreServiceProvider)
+            .create(
+              userId: updatedUser.id,
+              title: 'Đã hủy sân',
+              body:
+                  'Booking đã được hủy. Số dư hiện tại: ${updatedUser.walletBalance}đ.',
+              type: 'booking_cancelled',
+            );
+      }
       state = const AsyncData(null);
       ref.invalidate(venueBookingsProvider);
       ref.invalidate(userBookingsProvider);
@@ -274,15 +346,14 @@ class BookingCancelNotifier extends AsyncNotifier<void> {
   }
 }
 
-final bookingCancelProvider = AsyncNotifierProvider<BookingCancelNotifier, void>(
-  BookingCancelNotifier.new,
-);
+final bookingCancelProvider =
+    AsyncNotifierProvider<BookingCancelNotifier, void>(
+      BookingCancelNotifier.new,
+    );
 
-BookingInfo bookingInfoFromCourtBooking(
-  CourtBooking booking, {
-  Venue? venue,
-}) {
-  final resolvedVenue = venue ??
+BookingInfo bookingInfoFromCourtBooking(CourtBooking booking, {Venue? venue}) {
+  final resolvedVenue =
+      venue ??
       Venue(
         id: _stableIntId(booking.venueId),
         firestoreId: booking.venueId,
@@ -309,6 +380,9 @@ BookingInfo bookingInfoFromCourtBooking(
     status: bookingDisplayStatus(booking),
     amount: _formatVnd(booking.totalPrice),
     court: booking.courtName.isEmpty ? 'Sân đã đặt' : booking.courtName,
+    addOns: [
+      for (final item in booking.addOns) '${item.name} x${item.quantity}',
+    ],
   );
 }
 
@@ -329,20 +403,17 @@ String _formatBookingDate(String rawDate) {
   return '${weekdays[date.weekday - 1]}, $day/$month/${date.year}';
 }
 
-List<Venue> _toPublicVenues(List<ManagedVenue> venues, List<SportCourt> courts) {
+List<Venue> _toPublicVenues(
+  List<ManagedVenue> venues,
+  List<SportCourt> courts,
+) {
   return venues
       .where((venue) => venue.active)
       .expand((venue) {
         final venueCourts = courts
-            .where(
-              (court) =>
-                  court.venueId == venue.id &&
-                  court.active &&
-                  _isBadmintonSport(court.sport),
-            )
+            .where((court) => court.venueId == venue.id && court.active)
             .toList(growable: false);
-        final hasBadmintonVenueTag = venue.sports.any(_isBadmintonSport);
-        if (venueCourts.isEmpty && !hasBadmintonVenueTag) {
+        if (venueCourts.isEmpty && venue.sports.isEmpty) {
           return const <Venue>[];
         }
         final prices = venueCourts
@@ -360,7 +431,11 @@ List<Venue> _toPublicVenues(List<ManagedVenue> venues, List<SportCourt> courts) 
             id: _stableIntId(venue.id),
             firestoreId: venue.id,
             name: venue.name,
-            sport: const ['Cầu lông'],
+            sport: venueCourts
+                .map((court) => court.sport)
+                .where((sport) => sport.isNotEmpty)
+                .toSet()
+                .toList(),
             distance: '',
             rating: venue.rating,
             reviews: venue.reviews,

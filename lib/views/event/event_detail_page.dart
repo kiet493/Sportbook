@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/utils/currency_formatter.dart';
 import '../../models/community_models.dart';
 import 'event_list_page.dart';
 
@@ -52,7 +53,7 @@ class EventDetailPage extends StatelessWidget {
           _DetailRow(
             icon: Icons.schedule,
             label: 'Thời gian',
-            value: formatCommunityDate(event.startAt),
+            value: _eventSchedule(event),
           ),
           _DetailRow(
             icon: Icons.location_on_outlined,
@@ -68,6 +69,16 @@ class EventDetailPage extends StatelessWidget {
             icon: Icons.person_outline,
             label: 'Người tạo',
             value: eventCreatorName(event),
+          ),
+          const _DetailRow(
+            icon: Icons.payments_outlined,
+            label: 'Lệ phí',
+            value: 'Đăng ký tham gia miễn phí',
+          ),
+          _DetailRow(
+            icon: Icons.receipt_long_outlined,
+            label: 'Đơn đặt sân sự kiện',
+            value: _eventOrderSummary(event),
           ),
           const SizedBox(height: 18),
           const Text(
@@ -95,6 +106,27 @@ class EventDetailPage extends StatelessWidget {
       ),
     );
   }
+}
+
+String _eventSchedule(SportEvent event) {
+  String date(DateTime value) =>
+      '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}';
+  final startMinutes = event.dailyStartMinutes > 0
+      ? event.dailyStartMinutes
+      : event.startAt.hour * 60 + event.startAt.minute;
+  final endMinutes = event.dailyEndMinutes > 0
+      ? event.dailyEndMinutes
+      : event.endAt.hour * 60 + event.endAt.minute;
+  String time(int value) =>
+      '${(value ~/ 60).toString().padLeft(2, '0')}:${(value % 60).toString().padLeft(2, '0')}';
+  return '${date(event.startAt)} - ${date(event.endAt)} • ${time(startMinutes)} - ${time(endMinutes)} mỗi ngày';
+}
+
+String _eventOrderSummary(SportEvent event) {
+  final hours = event.totalDurationMinutes ~/ 60;
+  final minutes = event.totalDurationMinutes % 60;
+  final duration = minutes == 0 ? '$hours giờ' : '$hours giờ $minutes phút';
+  return '$duration • ${formatVnd(event.estimatedPrice)}đ';
 }
 
 class _DetailRow extends StatelessWidget {

@@ -27,7 +27,8 @@ class BookingInfo {
   final String status;
   final String amount;
   final String court;
-  const BookingInfo({required this.id, required this.venue, required this.date, required this.time, required this.status, required this.amount, required this.court});
+  final List<String> addOns;
+  const BookingInfo({required this.id, required this.venue, required this.date, required this.time, required this.status, required this.amount, required this.court, this.addOns = const []});
 }
 
 class SportsCategory {

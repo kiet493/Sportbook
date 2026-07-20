@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/utils/currency_formatter.dart';
 import '../../core/widgets/back_chevron_button.dart';
 import '../../models/court_booking.dart';
 import '../../models/venue.dart';
@@ -35,6 +36,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   late DateTime _selectedDate;
   CourtSlotSelection? _selectedSlot;
   final Map<String, CourtSlotSelection> _selectedSlots = {};
+  final Map<String, int> _addOnQuantities = {};
   bool _agreed = false;
   bool _isLoading = false;
   Timer? _clockTimer;
@@ -75,8 +77,14 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     : widget.venue.priceNum) /
                 2)
             .round(),
-  );
+  ) + _addOnTotal;
+  int get _addOnTotal => _addOns.fold<int>(0, (total, item) => total + item.total);
   int get _durationMinutes => BookingScheduleBoard.stepMinute;
+  List<BookingAddOn> get _addOns => [
+    for (final item in _addOnCatalog)
+      if ((_addOnQuantities[item.name] ?? 0) > 0)
+        BookingAddOn(name: item.name, quantity: _addOnQuantities[item.name]!, unitPrice: item.unitPrice),
+  ];
   String get _selectedDateKey => dateKey(_selectedDate);
 
   int get _minimumStartMinutes {
@@ -195,12 +203,13 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                             ? selected.court.pricePerHour
                             : widget.venue.priceNum) /
                         2)
-                    .round(),
+                    .round() + _addOnTotal,
             participants: 2,
             status: CourtSlotStatus.booked,
             paymentMethod: 'cash',
             notes: _notesController.text.trim(),
-            createdAt: DateTime.now(),
+      createdAt: DateTime.now(),
+      addOns: _addOns,
           ),
         )
         .toList();
@@ -359,6 +368,11 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     ),
                   ],
                   const SizedBox(height: 16),
+                  _AddOnPicker(
+                    quantities: _addOnQuantities,
+                    onChanged: (name, quantity) => setState(() => _addOnQuantities[name] = quantity),
+                  ),
+                  const SizedBox(height: 16),
                   BookingNotesBox(controller: _notesController),
                   const SizedBox(height: 16),
                   BookingPriceBreakdown(
@@ -400,6 +414,37 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
+}
+
+const _addOnCatalog = <BookingAddOn>[
+  BookingAddOn(name: 'Sting', quantity: 1, unitPrice: 30000),
+  BookingAddOn(name: 'Pepsi', quantity: 1, unitPrice: 30000),
+  BookingAddOn(name: 'Revive', quantity: 1, unitPrice: 30000),
+  BookingAddOn(name: 'Chanh muối', quantity: 1, unitPrice: 30000),
+  BookingAddOn(name: 'Yonex Astrox (thuê vợt)', quantity: 1, unitPrice: 100000),
+  BookingAddOn(name: 'Victor Thruster (thuê vợt)', quantity: 1, unitPrice: 100000),
+  BookingAddOn(name: 'Lining Axforce (thuê vợt)', quantity: 1, unitPrice: 100000),
+];
+
+class _AddOnPicker extends StatelessWidget {
+  final Map<String, int> quantities;
+  final void Function(String name, int quantity) onChanged;
+  const _AddOnPicker({required this.quantities, required this.onChanged});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('Đồ uống & thuê vợt', style: TextStyle(fontWeight: FontWeight.w800)),
+      const SizedBox(height: 8),
+      for (final item in _addOnCatalog) Row(children: [
+        Expanded(child: Text('${item.name} • ${formatVnd(item.unitPrice)}đ')),
+        IconButton(onPressed: (quantities[item.name] ?? 0) == 0 ? null : () => onChanged(item.name, (quantities[item.name] ?? 0) - 1), icon: const Icon(Icons.remove_circle_outline)),
+        Text('${quantities[item.name] ?? 0}'),
+        IconButton(onPressed: () => onChanged(item.name, (quantities[item.name] ?? 0) + 1), icon: const Icon(Icons.add_circle, color: Color(0xFF2563EB))),
+      ]),
+    ]),
+  );
 }
 
 class _DateStrip extends StatelessWidget {

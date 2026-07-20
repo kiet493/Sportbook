@@ -75,6 +75,14 @@ class _JoinEventPageState extends ConsumerState<JoinEventPage> {
                   const SizedBox(height: 12),
                   Text(formatCommunityDate(widget.event.startAt)),
                   Text(widget.event.location),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Lệ phí tham gia: Miễn phí',
+                    style: TextStyle(
+                      color: Color(0xFF16A34A),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ],
               ),
             ),

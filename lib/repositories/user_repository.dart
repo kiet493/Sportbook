@@ -63,6 +63,10 @@ class UserRepository {
       errors['status'] = 'Trạng thái không hợp lệ';
     }
 
+    if (user.role == UserRole.staff && user.staffVenueId.trim().isEmpty) {
+      errors['staffVenueId'] = 'Nhân viên phải được gán vào một cụm sân';
+    }
+
     return errors;
   }
 
@@ -172,6 +176,10 @@ class UserRepository {
     return user.copyWith(
       email: user.email.trim().toLowerCase(),
       phone: AuthValidators.normalisePhone(user.phone),
+      staffVenueId: user.role == UserRole.staff ? user.staffVenueId.trim() : '',
+      staffVenueName: user.role == UserRole.staff
+          ? user.staffVenueName.trim()
+          : '',
       fullName: user.fullName.trim(),
       address: user.address.trim(),
       role: UserRole.all.contains(user.role) ? user.role : UserRole.user,

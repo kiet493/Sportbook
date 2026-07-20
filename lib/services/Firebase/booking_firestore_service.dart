@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../models/court_booking.dart';
+import '../../models/venue_review.dart';
 import 'notification_firestore_service.dart';
 
 class SlotAlreadyBookedException implements Exception {
@@ -78,12 +79,44 @@ class BookingFirestoreService {
         toFirestore: (data, _) => data,
       );
 
+  CollectionReference<Map<String, dynamic>> get _reviewsRef =>
+      _db.collection('venueReviews');
+
+  Stream<List<VenueReview>> watchVenueReviews(String venueId) => _reviewsRef
+      .where('venueId', isEqualTo: venueId)
+      .snapshots()
+      .map((snapshot) {
+        final reviews = snapshot.docs
+            .map((doc) => VenueReview.fromJson(doc.data(), doc.id))
+            .toList();
+        reviews.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return reviews;
+      });
+
+  Future<void> saveVenueReview({required VenueReview review}) =>
+      _reviewsRef.doc('${review.venueId}_${review.userId}').set({
+        'venueId': review.venueId,
+        'userId': review.userId,
+        'userName': review.userName,
+        'rating': review.rating,
+        'comment': review.comment,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
   Stream<Set<String>> watchFavoriteVenueIds(String userId) => _favoritesRef
       .where('userId', isEqualTo: userId)
       .snapshots()
-      .map((snap) => snap.docs.map((doc) => doc.data()['venueId']?.toString() ?? '').where((id) => id.isNotEmpty).toSet());
+      .map(
+        (snap) => snap.docs
+            .map((doc) => doc.data()['venueId']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toSet(),
+      );
 
-  Future<void> toggleFavorite({required String userId, required String venueId}) async {
+  Future<void> toggleFavorite({
+    required String userId,
+    required String venueId,
+  }) async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
     if (firebaseUser == null || firebaseUser.uid != userId) {
       throw FirebaseException(
@@ -131,16 +164,15 @@ class BookingFirestoreService {
   }
 
   Stream<List<SportCourt>> watchCourts(String venueId) {
-    return _courtsRef
-        .where('complexId', isEqualTo: venueId)
-        .snapshots()
-        .map((snap) {
-          final courts = snap.docs
-              .map((doc) => SportCourt.fromJson(doc.data(), fallbackId: doc.id))
-              .toList();
-          courts.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-          return courts;
-        });
+    return _courtsRef.where('complexId', isEqualTo: venueId).snapshots().map((
+      snap,
+    ) {
+      final courts = snap.docs
+          .map((doc) => SportCourt.fromJson(doc.data(), fallbackId: doc.id))
+          .toList();
+      courts.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+      return courts;
+    });
   }
 
   Stream<List<SportCourt>> watchAllCourts() {
@@ -163,12 +195,7 @@ class BookingFirestoreService {
   Stream<List<CourtSchedule>> watchSchedulesForDate(String selectedDateKey) {
     return _schedulesRef.snapshots().map((snap) {
       return snap.docs
-          .map(
-            (doc) => CourtSchedule.fromJson(
-              doc.data(),
-              fallbackId: doc.id,
-            ),
-          )
+          .map((doc) => CourtSchedule.fromJson(doc.data(), fallbackId: doc.id))
           .where(
             (schedule) =>
                 schedule.fieldId.isNotEmpty &&
@@ -187,60 +214,73 @@ class BookingFirestoreService {
         .where('dateKey', isEqualTo: date)
         .snapshots()
         .map((snap) {
-          return snap.docs.map((doc) {
-            final data = doc.data();
-            final minute = _readLockMinute(doc.id, data);
-            return CourtBooking(
-              id: data['bookingId']?.toString() ?? doc.id,
-              venueId: data['venueId']?.toString() ?? venueId,
-              venueName: '',
-              courtId:
-                  data['fieldId']?.toString() ??
-                  data['courtId']?.toString() ??
-                  '',
-              courtName: '',
-              userId: '',
-              userName: '',
-              userPhone: '',
-              dateKey: data['dateKey']?.toString() ?? date,
-              startMinutes: minute,
-              endMinutes: minute + 30,
-              totalPrice: 0,
-              participants: 0,
-              status: data['status']?.toString() ?? CourtSlotStatus.booked,
-              paymentMethod: '',
-              notes: '',
-              createdAt: DateTime.now(),
-            );
-          }).toList(growable: false);
+          return snap.docs
+              .map((doc) {
+                final data = doc.data();
+                final minute = _readLockMinute(doc.id, data);
+                return CourtBooking(
+                  id: data['bookingId']?.toString() ?? doc.id,
+                  venueId: data['venueId']?.toString() ?? venueId,
+                  venueName: '',
+                  courtId:
+                      data['fieldId']?.toString() ??
+                      data['courtId']?.toString() ??
+                      '',
+                  courtName: '',
+                  userId: '',
+                  userName: '',
+                  userPhone: '',
+                  dateKey: data['dateKey']?.toString() ?? date,
+                  startMinutes: minute,
+                  endMinutes: minute + 30,
+                  totalPrice: 0,
+                  participants: 0,
+                  status: data['status']?.toString() ?? CourtSlotStatus.booked,
+                  paymentMethod: '',
+                  notes: '',
+                  createdAt: DateTime.now(),
+                );
+              })
+              .toList(growable: false);
         });
   }
 
   Stream<List<CourtBooking>> watchUserBookings(String userId) {
-    return _bookingsRef
-        .where('userId', isEqualTo: userId)
-        .snapshots()
-        .map((snap) {
-          final bookings = snap.docs
-              .map(
-                (doc) => CourtBooking.fromJson(doc.data(), fallbackId: doc.id),
-              )
-              .toList();
-          bookings.sort((a, b) {
-            final dateCompare = b.dateKey.compareTo(a.dateKey);
-            if (dateCompare != 0) return dateCompare;
-            return b.startMinutes.compareTo(a.startMinutes);
-          });
-          return bookings;
-        });
+    return _bookingsRef.where('userId', isEqualTo: userId).snapshots().map((
+      snap,
+    ) {
+      final bookings = snap.docs
+          .map((doc) => CourtBooking.fromJson(doc.data(), fallbackId: doc.id))
+          .toList();
+      bookings.sort((a, b) {
+        final dateCompare = b.dateKey.compareTo(a.dateKey);
+        if (dateCompare != 0) return dateCompare;
+        return b.startMinutes.compareTo(a.startMinutes);
+      });
+      return bookings;
+    });
   }
 
   Stream<List<CourtBooking>> watchAllBookings() {
     return _bookingsRef.snapshots().map((snap) {
       final bookings = snap.docs
-          .map(
-            (doc) => CourtBooking.fromJson(doc.data(), fallbackId: doc.id),
-          )
+          .map((doc) => CourtBooking.fromJson(doc.data(), fallbackId: doc.id))
+          .toList();
+      bookings.sort((a, b) {
+        final dateCompare = b.dateKey.compareTo(a.dateKey);
+        if (dateCompare != 0) return dateCompare;
+        return b.startMinutes.compareTo(a.startMinutes);
+      });
+      return bookings;
+    });
+  }
+
+  Stream<List<CourtBooking>> watchVenueBookingHistory(String venueId) {
+    return _bookingsRef.where('venueId', isEqualTo: venueId).snapshots().map((
+      snap,
+    ) {
+      final bookings = snap.docs
+          .map((doc) => CourtBooking.fromJson(doc.data(), fallbackId: doc.id))
           .toList();
       bookings.sort((a, b) {
         final dateCompare = b.dateKey.compareTo(a.dateKey);
@@ -419,8 +459,14 @@ class BookingFirestoreService {
     try {
       await _db.runTransaction((transaction) async {
         final lockRefs = <DocumentReference<Map<String, dynamic>>>[
-          for (var minute = saved.startMinutes; minute < saved.endMinutes; minute += 30)
-            _slotLocksRef.doc('${saved.venueId}_${saved.dateKey}_${saved.courtId}_$minute'),
+          for (
+            var minute = saved.startMinutes;
+            minute < saved.endMinutes;
+            minute += 30
+          )
+            _slotLocksRef.doc(
+              '${saved.venueId}_${saved.dateKey}_${saved.courtId}_$minute',
+            ),
         ];
         for (final lockRef in lockRefs) {
           if ((await transaction.get(lockRef)).exists) {
@@ -439,10 +485,14 @@ class BookingFirestoreService {
         for (var index = 0; index < lockRefs.length; index++) {
           final minute = saved.startMinutes + index * 30;
           transaction.set(lockRefs[index], {
-            'bookingId': doc.id, 'venueId': saved.venueId,
-            'fieldId': saved.courtId, 'courtId': saved.courtId,
-            'dateKey': saved.dateKey, 'startMinutes': minute,
-            'status': CourtSlotStatus.booked, 'userId': saved.userId,
+            'bookingId': doc.id,
+            'venueId': saved.venueId,
+            'fieldId': saved.courtId,
+            'courtId': saved.courtId,
+            'dateKey': saved.dateKey,
+            'startMinutes': minute,
+            'status': CourtSlotStatus.booked,
+            'userId': saved.userId,
             'createdAt': FieldValue.serverTimestamp(),
           });
         }
@@ -456,10 +506,53 @@ class BookingFirestoreService {
     await NotificationFirestoreService(firestore: _db).create(
       userId: saved.userId,
       title: 'Đặt sân thành công',
-      body: '${saved.venueName} • ${saved.courtName} • ${saved.dateKey} ${saved.timeRange}',
+      body:
+          '${saved.venueName} • ${saved.courtName} • ${saved.dateKey} ${saved.timeRange}',
       type: 'booking',
     );
     return saved;
+  }
+
+  Stream<bool> watchVenueHasAvailableSlot(
+    String venueId,
+    String selectedDateKey,
+  ) async* {
+    final courts = await _courtsRef
+        .where('complexId', isEqualTo: venueId)
+        .get();
+    final activeCourtIds = courts.docs
+        .map((doc) => SportCourt.fromJson(doc.data(), fallbackId: doc.id))
+        .where((court) => court.active)
+        .map((court) => court.id)
+        .toSet();
+    if (activeCourtIds.isEmpty) {
+      yield false;
+      return;
+    }
+    yield* _slotLocksRef
+        .where('venueId', isEqualTo: venueId)
+        .where('dateKey', isEqualTo: selectedDateKey)
+        .snapshots()
+        .map((snapshot) {
+          final occupied = <String>{
+            for (final doc in snapshot.docs)
+              '${doc.data()['fieldId'] ?? doc.data()['courtId']}_${_readLockMinute(doc.id, doc.data())}',
+          };
+          final now = DateTime.now();
+          final minimum = dateKey(now) == selectedDateKey
+              ? ((now.hour * 60 + now.minute) ~/ 30 + 1) * 30
+              : 6 * 60;
+          for (final courtId in activeCourtIds) {
+            for (
+              var minute = minimum < 6 * 60 ? 6 * 60 : minimum;
+              minute < 22 * 60 + 30;
+              minute += 30
+            ) {
+              if (!occupied.contains('${courtId}_$minute')) return true;
+            }
+          }
+          return false;
+        });
   }
 
   Future<void> setMaintenanceSlot({
@@ -469,7 +562,9 @@ class BookingFirestoreService {
     required int startMinutes,
     required bool maintenance,
   }) async {
-    final ref = _slotLocksRef.doc('${venueId}_${selectedDateKey}_${courtId}_$startMinutes');
+    final ref = _slotLocksRef.doc(
+      '${venueId}_${selectedDateKey}_${courtId}_$startMinutes',
+    );
     await _db.runTransaction((transaction) async {
       final snapshot = await transaction.get(ref);
       final status = snapshot.data()?['status']?.toString();
@@ -478,10 +573,15 @@ class BookingFirestoreService {
           throw const SlotAlreadyBookedException();
         }
         transaction.set(ref, {
-          'bookingId': '', 'venueId': venueId, 'fieldId': courtId,
-          'courtId': courtId, 'dateKey': selectedDateKey,
-          'startMinutes': startMinutes, 'status': CourtSlotStatus.blocked,
-          'userId': '', 'updatedAt': FieldValue.serverTimestamp(),
+          'bookingId': '',
+          'venueId': venueId,
+          'fieldId': courtId,
+          'courtId': courtId,
+          'dateKey': selectedDateKey,
+          'startMinutes': startMinutes,
+          'status': CourtSlotStatus.blocked,
+          'userId': '',
+          'updatedAt': FieldValue.serverTimestamp(),
           if (!snapshot.exists) 'createdAt': FieldValue.serverTimestamp(),
         });
       } else if (snapshot.exists && status == CourtSlotStatus.blocked) {
@@ -490,8 +590,8 @@ class BookingFirestoreService {
     });
   }
 
-  Future<void> cancelBooking(String bookingId) async {
-    await _db.runTransaction((transaction) async {
+  Future<int> cancelBooking(String bookingId) async {
+    return _db.runTransaction((transaction) async {
       final bookingRef = _bookingsRef.doc(bookingId);
       final snapshot = await transaction.get(bookingRef);
       final data = snapshot.data();
@@ -500,6 +600,14 @@ class BookingFirestoreService {
       }
 
       final booking = CourtBooking.fromJson(data, fallbackId: snapshot.id);
+      if (booking.status == CourtSlotStatus.cancelled) return 0;
+      final start = booking.scheduledStart;
+      if (start == null ||
+          start.isBefore(DateTime.now().add(const Duration(hours: 5)))) {
+        throw ArgumentError(
+          'Cancellation requires at least five hours notice.',
+        );
+      }
 
       final lockRefs = <DocumentReference<Map<String, dynamic>>>[
         for (
@@ -514,16 +622,26 @@ class BookingFirestoreService {
       final existingLocks = <DocumentReference<Map<String, dynamic>>>[];
       for (final lockRef in lockRefs) {
         final lock = await transaction.get(lockRef);
-        if (lock.exists) existingLocks.add(lockRef);
+        if (lock.exists &&
+            lock.data()?['status']?.toString() != CourtSlotStatus.event) {
+          existingLocks.add(lockRef);
+        }
       }
 
-      transaction.update(bookingRef, {
-        'status': CourtSlotStatus.cancelled,
+      final userRef = _db.collection('users').doc(booking.userId);
+      final userSnapshot = await transaction.get(userRef);
+      final currentBalance = _readWalletBalance(
+        userSnapshot.data()?['walletBalance'],
+      );
+      transaction.update(userRef, {
+        'walletBalance': currentBalance + booking.totalPrice,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+      transaction.delete(bookingRef);
       for (final lockRef in existingLocks) {
         transaction.delete(lockRef);
       }
+      return booking.totalPrice;
     });
   }
 
@@ -604,10 +722,14 @@ class BookingFirestoreService {
     );
 
     if (normalized.venueId.isEmpty || normalized.name.isEmpty) {
-      throw const VenueDataException('Sân con phải thuộc một cụm sân và có tên.');
+      throw const VenueDataException(
+        'Sân con phải thuộc một cụm sân và có tên.',
+      );
     }
     if (normalized.sport.isEmpty || normalized.location.isEmpty) {
-      throw const VenueDataException('Môn thể thao hoặc vị trí sân không hợp lệ.');
+      throw const VenueDataException(
+        'Môn thể thao hoặc vị trí sân không hợp lệ.',
+      );
     }
     if (normalized.capacity <= 0 || normalized.pricePerHour <= 0) {
       throw const VenueDataException('Sức chứa hoặc giá sân không hợp lệ.');
@@ -686,6 +808,11 @@ class BookingFirestoreService {
     if (raw is int) return raw;
     if (raw is num) return raw.round();
     return _minuteFromLockId(documentId);
+  }
+
+  int _readWalletBalance(Object? value) {
+    if (value is num) return value.round();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   int _minuteFromLockId(String documentId) {

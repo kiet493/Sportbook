@@ -12,8 +12,12 @@ class SportEvent {
   final bool active;
   final String createdBy;
   final String creatorName;
+  final String venueId;
   final String fieldId;
+  final String courtName;
   final String bookingId;
+  final int dailyStartMinutes;
+  final int dailyEndMinutes;
   final DateTime deadline;
   final int minPlayers;
   final String playerLevel;
@@ -21,6 +25,9 @@ class SportEvent {
   final String teamPreference;
   final String status;
   final int estimatedPrice;
+  final int hourlyRate;
+  final int totalDurationMinutes;
+  final String paymentStatus;
 
   const SportEvent({
     required this.id,
@@ -36,8 +43,12 @@ class SportEvent {
     required this.active,
     required this.createdBy,
     this.creatorName = '',
+    this.venueId = '',
     this.fieldId = '',
+    this.courtName = '',
     this.bookingId = '',
+    this.dailyStartMinutes = 0,
+    this.dailyEndMinutes = 0,
     DateTime? deadline,
     this.minPlayers = 1,
     this.playerLevel = '',
@@ -45,6 +56,9 @@ class SportEvent {
     this.teamPreference = '',
     this.status = 'open',
     this.estimatedPrice = 0,
+    this.hourlyRate = 50000,
+    this.totalDurationMinutes = 0,
+    this.paymentStatus = 'unpaid',
   }) : deadline = deadline ?? startAt;
 
   bool get isFull => registeredCount >= capacity;
@@ -63,8 +77,12 @@ class SportEvent {
     active: active,
     createdBy: createdBy,
     creatorName: creatorName,
+    venueId: venueId,
     fieldId: fieldId,
+    courtName: courtName,
     bookingId: bookingId,
+    dailyStartMinutes: dailyStartMinutes,
+    dailyEndMinutes: dailyEndMinutes,
     deadline: deadline,
     minPlayers: minPlayers,
     playerLevel: playerLevel,
@@ -72,6 +90,9 @@ class SportEvent {
     teamPreference: teamPreference,
     status: status,
     estimatedPrice: estimatedPrice,
+    hourlyRate: hourlyRate,
+    totalDurationMinutes: totalDurationMinutes,
+    paymentStatus: paymentStatus,
   );
 
   Map<String, dynamic> toJson() => {
@@ -88,8 +109,12 @@ class SportEvent {
     'isActive': active,
     'createdBy': createdBy,
     'creatorName': creatorName,
+    'venueId': venueId,
     'fieldId': fieldId,
+    'courtName': courtName,
     'bookingId': bookingId,
+    'dailyStartMinutes': dailyStartMinutes,
+    'dailyEndMinutes': dailyEndMinutes,
     'deadline': deadline,
     'minPlayers': minPlayers,
     'maxPlayers': capacity,
@@ -99,6 +124,9 @@ class SportEvent {
     'teamPreference': teamPreference,
     'status': status,
     'estimatedPrice': estimatedPrice,
+    'hourlyRate': hourlyRate,
+    'totalDurationMinutes': totalDurationMinutes,
+    'paymentStatus': paymentStatus,
   };
 
   factory SportEvent.fromJson(
@@ -139,8 +167,12 @@ class SportEvent {
             json['ownerName'],
         '',
       ),
+      venueId: _string(json['venueId'], ''),
       fieldId: _string(json['fieldId'], ''),
+      courtName: _string(json['courtName'], ''),
       bookingId: _string(json['bookingId'], ''),
+      dailyStartMinutes: _integer(json['dailyStartMinutes'], 0),
+      dailyEndMinutes: _integer(json['dailyEndMinutes'], 0),
       deadline: _date(json['deadline']) ?? now,
       minPlayers: _integer(json['minPlayers'], 1),
       playerLevel: _string(json['playerLevel'], ''),
@@ -148,6 +180,9 @@ class SportEvent {
       teamPreference: _string(json['teamPreference'], ''),
       status: _string(json['status'], 'open'),
       estimatedPrice: _integer(json['estimatedPrice'], 0),
+      hourlyRate: _integer(json['hourlyRate'], 50000),
+      totalDurationMinutes: _integer(json['totalDurationMinutes'], 0),
+      paymentStatus: _string(json['paymentStatus'], 'unpaid'),
     );
   }
 }
@@ -309,6 +344,7 @@ class MatchmakingMember {
   final String userName;
   final String phone;
   final DateTime joinedAt;
+  final String status;
 
   const MatchmakingMember({
     required this.id,
@@ -317,6 +353,7 @@ class MatchmakingMember {
     required this.userName,
     required this.phone,
     required this.joinedAt,
+    this.status = 'approved',
   });
 
   Map<String, dynamic> toJson() => {
@@ -326,6 +363,7 @@ class MatchmakingMember {
     'userName': userName,
     'phone': phone,
     'joinedAt': joinedAt,
+    'status': status,
   };
 
   factory MatchmakingMember.fromJson(
@@ -338,6 +376,7 @@ class MatchmakingMember {
     userName: _string(json['userName'], 'Người chơi'),
     phone: _string(json['phone'], ''),
     joinedAt: _date(json['joinedAt']) ?? DateTime.now(),
+    status: _string(json['status'], 'approved'),
   );
 }
 

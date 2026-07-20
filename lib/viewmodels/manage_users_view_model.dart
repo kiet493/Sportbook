@@ -55,14 +55,16 @@ class ManageUsersViewModel extends AsyncNotifier<List<ManageUsersItem>> {
   }
 
   List<ManageUsersItem> _project(List<UserModel> users) {
-    final filtered = users.where((u) {
-      if (_role != null && u.role != _role) return false;
-      if (_status != null && u.status != _status) return false;
-      if (_search.isEmpty) return true;
-      return u.fullName.toLowerCase().contains(_search) ||
-          u.email.toLowerCase().contains(_search) ||
-          u.phone.contains(_search);
-    }).toList(growable: false);
+    final filtered = users
+        .where((u) {
+          if (_role != null && u.role != _role) return false;
+          if (_status != null && u.status != _status) return false;
+          if (_search.isEmpty) return true;
+          return u.fullName.toLowerCase().contains(_search) ||
+              u.email.toLowerCase().contains(_search) ||
+              u.phone.contains(_search);
+        })
+        .toList(growable: false);
 
     return filtered
         .map(
@@ -73,6 +75,7 @@ class ManageUsersViewModel extends AsyncNotifier<List<ManageUsersItem>> {
             phone: u.phone,
             role: u.role,
             status: u.status,
+            staffVenueName: u.staffVenueName,
           ),
         )
         .toList(growable: false);
@@ -89,10 +92,10 @@ class ManageUsersViewModel extends AsyncNotifier<List<ManageUsersItem>> {
 
     final authUser = await FirebaseAuthService()
         .createUserWithoutChangingSession(
-      email: user.email.trim().toLowerCase(),
-      password: password,
-      displayName: user.fullName,
-    );
+          email: user.email.trim().toLowerCase(),
+          password: password,
+          displayName: user.fullName,
+        );
     final created = await repo.createUser(
       user.copyWith(id: authUser.uid, email: authUser.email),
     );

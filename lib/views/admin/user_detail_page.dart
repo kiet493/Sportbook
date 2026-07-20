@@ -43,19 +43,19 @@ class UserDetailPage extends ConsumerWidget {
   }
 
   AppBar _buildAppBar(BuildContext context) => AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        leading: const BackChevronButton(),
-        title: const Text(
-          'Chi tiết tài khoản',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        centerTitle: true,
-      );
+    backgroundColor: AppColors.background,
+    elevation: 0,
+    leading: const BackChevronButton(),
+    title: const Text(
+      'Chi tiết tài khoản',
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textPrimary,
+      ),
+    ),
+    centerTitle: true,
+  );
 }
 
 // ─── Internal section widgets ─────────────────────────────────────────────
@@ -93,8 +93,14 @@ class _BasicInfoCard extends StatelessWidget {
           AdminInfoRow(
             label: 'Vai trò',
             value: UserRole.label(user.role),
-            isLast: true,
+            isLast: !user.isStaff,
           ),
+          if (user.isStaff)
+            AdminInfoRow(
+              label: 'Cụm sân phụ trách',
+              value: user.staffVenueName.isEmpty ? '—' : user.staffVenueName,
+              isLast: true,
+            ),
         ],
       ),
     );
@@ -150,14 +156,12 @@ class _DetailActionButtons extends ConsumerWidget {
         Expanded(
           child: OutlinedButton.icon(
             onPressed: () => _confirmBan(context, ref),
-            icon: Icon(
-              banned ? Icons.lock_open : Icons.block,
-              size: 18,
-            ),
+            icon: Icon(banned ? Icons.lock_open : Icons.block, size: 18),
             label: Text(banned ? 'Mở khóa' : 'Khóa tài khoản'),
             style: OutlinedButton.styleFrom(
-              foregroundColor:
-                  banned ? AppColors.primaryDeep : AppColors.dangerDeep,
+              foregroundColor: banned
+                  ? AppColors.primaryDeep
+                  : AppColors.dangerDeep,
               side: BorderSide(
                 color: banned ? AppColors.primary : AppColors.danger,
               ),
@@ -195,9 +199,7 @@ class _DetailActionButtons extends ConsumerWidget {
     if (confirmed != true) return;
 
     try {
-      await ref
-          .read(manageUsersViewModelProvider.notifier)
-          .toggleBan(user);
+      await ref.read(manageUsersViewModelProvider.notifier).toggleBan(user);
       messenger.showSnackBar(
         SnackBar(
           content: Text(
@@ -206,9 +208,7 @@ class _DetailActionButtons extends ConsumerWidget {
         ),
       );
     } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Không thể cập nhật: $e')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('Không thể cập nhật: $e')));
     }
   }
 }

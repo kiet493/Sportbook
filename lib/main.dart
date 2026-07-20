@@ -29,6 +29,7 @@ import 'views/profile/edit_profile_page.dart';
 import 'views/event/event_detail_page.dart';
 import 'views/event/event_list_page.dart';
 import 'views/event/join_event_page.dart';
+import 'views/event/create_event_page.dart';
 import 'views/matchmaking/create_matchmaking_page.dart';
 import 'views/matchmaking/matchmaking_detail_page.dart';
 import 'views/matchmaking/matchmaking_list_page.dart';
@@ -39,6 +40,9 @@ import 'views/booking/booking_history_page.dart';
 import 'views/booking/booking_detail_page.dart';
 import 'views/payment/payment_page.dart';
 import 'views/payment/transaction_history_page.dart';
+import 'views/notification/notifications_page.dart';
+import 'views/staff/staff_dashboard_page.dart';
+import 'views/news/news_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -131,6 +135,9 @@ class _AppControllerState extends ConsumerState<AppController> {
     final user = ref.read(sessionProvider)?.user;
     if (user != null && user.isAdmin && !user.isBanned) {
       return "admin";
+    }
+    if (user != null && user.isStaff && !user.isBanned) {
+      return "staff";
     }
 
     return "home";
@@ -268,7 +275,39 @@ class _AppControllerState extends ConsumerState<AppController> {
               });
             },
             onOpenMatchmaking: () => _goScreen("matchmaking"),
+            onCreate: () => _goScreen("create-event"),
           );
+          break;
+        case "create-event":
+          activeWidget = CreateEventPage(
+            onBack: () => _goScreen("events"),
+            onCreated: (event) {
+              setState(() {
+                _selectedEvent = event;
+                _screen = "event-payment";
+              });
+            },
+          );
+          break;
+        case "event-payment":
+          final event = _selectedEvent;
+          activeWidget = event == null
+              ? EventListPage(
+                  onBack: () => _goScreen("home"),
+                  onOpenEvent: (selected) {
+                    setState(() {
+                      _selectedEvent = selected;
+                      _screen = "event-detail";
+                    });
+                  },
+                  onOpenMatchmaking: () => _goScreen("matchmaking"),
+                  onCreate: () => _goScreen("create-event"),
+                )
+              : PaymentPage(
+                  event: event,
+                  onBack: () => _goScreen("create-event"),
+                  onPaid: (_) => _goScreen("events"),
+                );
           break;
         case "event-detail":
           final event = _selectedEvent;
@@ -279,6 +318,7 @@ class _AppControllerState extends ConsumerState<AppController> {
                     setState(() => _selectedEvent = selected);
                   },
                   onOpenMatchmaking: () => _goScreen("matchmaking"),
+                  onCreate: () => _goScreen("create-event"),
                 )
               : EventDetailPage(
                   event: event,
@@ -293,6 +333,7 @@ class _AppControllerState extends ConsumerState<AppController> {
                   onBack: () => _goScreen("home"),
                   onOpenEvent: (_) {},
                   onOpenMatchmaking: () => _goScreen("matchmaking"),
+                  onCreate: () => _goScreen("create-event"),
                 )
               : JoinEventPage(
                   event: event,
@@ -343,6 +384,14 @@ class _AppControllerState extends ConsumerState<AppController> {
           activeWidget = RoleGuard(
             requiredRole: UserRole.admin,
             child: AdminDashboardPage(
+              onLogout: () => _transitionPhase('login'),
+            ),
+          );
+          break;
+        case "staff":
+          activeWidget = RoleGuard(
+            requiredRole: UserRole.staff,
+            child: StaffDashboardPage(
               onLogout: () => _transitionPhase('login'),
             ),
           );
@@ -418,6 +467,12 @@ class _AppControllerState extends ConsumerState<AppController> {
           activeWidget = TransactionHistoryPage(
             onBack: () => _goScreen('profile'),
           );
+          break;
+        case "notifications":
+          activeWidget = NotificationsPage(onBack: () => _goScreen('home'));
+          break;
+        case "news":
+          activeWidget = NewsPage(onBack: () => _goScreen('home'));
           break;
         case "success":
           final venue = _selectedVenue;

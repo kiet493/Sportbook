@@ -73,6 +73,7 @@ class ManageUsersItem {
   final String phone;
   final String role;
   final String status;
+  final String staffVenueName;
 
   const ManageUsersItem({
     required this.id,
@@ -81,5 +82,6 @@ class ManageUsersItem {
     required this.phone,
     required this.role,
     required this.status,
+    this.staffVenueName = '',
   });
 }

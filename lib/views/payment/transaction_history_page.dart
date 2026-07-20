@@ -52,6 +52,7 @@ class TransactionHistoryPage extends ConsumerWidget {
                   leading: const Icon(Icons.receipt_long),
                   title: Text('${formatVnd(item.amount)}đ'),
                   subtitle: Text(
+                    '${item.orderType == 'event' ? 'Đơn sự kiện' : 'Đặt sân'} • '
                     '${item.method == 'vnpay' ? 'VNPay' : item.method}$couponLabel',
                   ),
                   trailing: Text(status.$1, style: TextStyle(color: status.$2)),

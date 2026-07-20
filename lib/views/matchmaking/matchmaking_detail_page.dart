@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/community_models.dart';
 import '../../providers/community_providers.dart';
+import '../../providers/registration_providers.dart';
 import '../event/event_list_page.dart';
 
 class MatchmakingDetailPage extends ConsumerStatefulWidget {
@@ -40,10 +41,21 @@ class _MatchmakingDetailPageState extends ConsumerState<MatchmakingDetailPage> {
     );
   }
 
+  Future<void> _review(MatchmakingMember member, bool approve) async {
+    final error = await ref.read(communityActionProvider.notifier).reviewJoinRequest(
+      roomId: widget.room.id,
+      userId: member.userId,
+      approve: approve,
+    );
+    if (!mounted || error == null) return;
+    setState(() => _error = error);
+  }
+
   @override
   Widget build(BuildContext context) {
     final members = ref.watch(matchmakingMembersProvider(widget.room.id));
     final loading = ref.watch(communityActionProvider).isLoading;
+    final isOwner = ref.watch(sessionProvider)?.user.id == widget.room.createdBy;
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -99,7 +111,7 @@ class _MatchmakingDetailPageState extends ConsumerState<MatchmakingDetailPage> {
             error: (error, _) => Text('Không thể tải thành viên: $error'),
             data: (items) => Column(
               children: [
-                for (final member in items)
+                for (final member in items.where((member) => member.status == 'approved'))
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: CircleAvatar(
@@ -115,6 +127,11 @@ class _MatchmakingDetailPageState extends ConsumerState<MatchmakingDetailPage> {
               ],
             ),
           ),
+          if (isOwner) _PendingRequests(
+            members: members,
+            loading: loading,
+            onReview: _review,
+          ),
           if (_error != null)
             Text(_error!, style: const TextStyle(color: Color(0xFFDC2626))),
         ],
@@ -122,7 +139,7 @@ class _MatchmakingDetailPageState extends ConsumerState<MatchmakingDetailPage> {
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.all(16),
         child: FilledButton.icon(
-          onPressed: loading || !widget.room.isOpen || widget.room.isFull
+          onPressed: loading || isOwner || !widget.room.isOpen || widget.room.isFull
               ? null
               : _join,
           style: FilledButton.styleFrom(
@@ -136,6 +153,50 @@ class _MatchmakingDetailPageState extends ConsumerState<MatchmakingDetailPage> {
       ),
     );
   }
+}
+
+class _PendingRequests extends StatelessWidget {
+  final AsyncValue<List<MatchmakingMember>> members;
+  final bool loading;
+  final void Function(MatchmakingMember member, bool approve) onReview;
+
+  const _PendingRequests({
+    required this.members,
+    required this.loading,
+    required this.onReview,
+  });
+
+  @override
+  Widget build(BuildContext context) => members.when(
+    loading: () => const SizedBox.shrink(),
+    error: (_, _) => const SizedBox.shrink(),
+    data: (items) {
+      final pending = items.where((member) => member.status == 'pending').toList();
+      if (pending.isEmpty) return const SizedBox.shrink();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 20),
+          const Text('Yêu cầu chờ duyệt', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+          for (final member in pending) ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(member.userName),
+            subtitle: Text(member.phone),
+            trailing: Wrap(children: [
+              IconButton(
+                icon: const Icon(Icons.close, color: Color(0xFFDC2626)),
+                onPressed: loading ? null : () => onReview(member, false),
+              ),
+              IconButton(
+                icon: const Icon(Icons.check, color: Color(0xFF16A34A)),
+                onPressed: loading ? null : () => onReview(member, true),
+              ),
+            ]),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 String _roomLocation(MatchmakingRoom room) => room.courtName.trim().isEmpty

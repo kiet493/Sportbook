@@ -9,12 +9,14 @@ class EventListPage extends ConsumerWidget {
   final VoidCallback onBack;
   final ValueChanged<SportEvent> onOpenEvent;
   final VoidCallback onOpenMatchmaking;
+  final VoidCallback onCreate;
 
   const EventListPage({
     super.key,
     required this.onBack,
     required this.onOpenEvent,
     required this.onOpenMatchmaking,
+    required this.onCreate,
   });
 
   @override
@@ -54,6 +56,13 @@ class EventListPage extends ConsumerWidget {
                   ),
                 ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: onCreate,
+        backgroundColor: const Color(0xFF9333EA),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Tạo sự kiện'),
       ),
     );
   }

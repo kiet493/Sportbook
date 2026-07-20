@@ -37,6 +37,8 @@ service cloud.firestore {
           'firebaseUID',
           'email',
           'role',
+          'staffVenueId',
+          'staffVenueName',
           'status',
           'isBanned',
           'createdAt'
@@ -64,6 +66,19 @@ service cloud.firestore {
     function eventRegistrationAfter(eventId, userId) {
       return getAfter(
         /databases/$(database)/documents/event_registrations/$(eventId + '_' + userId)
+      ).data;
+    }
+
+    function isStaffForVenue(venueId) {
+      return signedIn()
+        && currentUser().role == 'staff'
+        && currentUser().isBanned != true
+        && currentUser().staffVenueId == venueId;
+    }
+
+    function eventAfter(eventId) {
+      return getAfter(
+        /databases/$(database)/documents/events/$(eventId)
       ).data;
     }
 
@@ -98,7 +113,8 @@ service cloud.firestore {
 
     match /bookings/{bookingId} {
       allow read: if isAdmin()
-        || (signedIn() && resource.data.userId == request.auth.uid);
+        || (signedIn() && resource.data.userId == request.auth.uid)
+        || isStaffForVenue(resource.data.venueId);
       allow create: if isAdmin()
         || (signedIn()
         && request.resource.data.userId == request.auth.uid
@@ -135,14 +151,17 @@ service cloud.firestore {
           && request.resource.data.userId == resource.data.userId
           && (
             (request.resource.data.status == 'cancelled'
-              && resource.data.paymentStatus != 'pending'
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                 'status',
                 'updatedAt'
               ]))
+            || request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'paymentStatus', 'paymentMethod', 'updatedAt'
+            ])
           )
         );
-      allow delete: if isAdmin();
+      allow delete: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
     }
 
     match /bookingSlotLocks/{lockId} {
@@ -163,8 +182,27 @@ service cloud.firestore {
         && bookingAfter(request.resource.data.bookingId).fieldId
           == request.resource.data.fieldId
         && bookingAfter(request.resource.data.bookingId).dateKey
-          == request.resource.data.dateKey);
-      allow update: if isAdmin();
+          == request.resource.data.dateKey)
+        || (signedIn()
+          && request.resource.data.status == 'event'
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.eventId is string
+          && eventAfter(request.resource.data.eventId).createdBy == request.auth.uid
+          && eventAfter(request.resource.data.eventId).venueId
+            == request.resource.data.venueId
+          && eventAfter(request.resource.data.eventId).fieldId
+            == request.resource.data.fieldId
+          && (
+            eventAfter(request.resource.data.eventId).status == 'pending_payment'
+            || eventAfter(request.resource.data.eventId).status == 'open'
+          ));
+      allow update: if isAdmin()
+        || (signedIn()
+          && resource.data.userId == request.auth.uid
+          && resource.data.bookingId == request.resource.data.bookingId
+          && request.resource.data.status == 'event'
+          && request.resource.data.eventId is string
+          && eventAfter(request.resource.data.eventId).createdBy == request.auth.uid);
       allow delete: if isAdmin()
         || (
           signedIn()
@@ -196,6 +234,64 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    match /staffSales/{saleId} {
+      allow read: if isAdmin() || isStaffForVenue(resource.data.venueId);
+      allow create, update: if isAdmin()
+        || (
+          signedIn()
+          && request.resource.data.staffId == request.auth.uid
+          && isStaffForVenue(request.resource.data.venueId)
+          && saleId == request.resource.data.bookingId
+          && selectedBooking(request.resource.data.bookingId).venueId
+            == request.resource.data.venueId
+          && selectedBooking(request.resource.data.bookingId).dateKey
+            == request.resource.data.dateKey
+          && request.resource.data.waterQuantity is int
+          && request.resource.data.waterQuantity >= 0
+          && request.resource.data.racketQuantity is int
+          && request.resource.data.racketQuantity >= 0
+          && request.resource.data.waterUnitPrice == 30000
+          && request.resource.data.racketUnitPrice == 100000
+          && request.resource.data.totalRevenue
+            == request.resource.data.waterQuantity * 30000
+              + request.resource.data.racketQuantity * 100000
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /staffReports/{reportId} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.staffId == request.auth.uid);
+      allow create: if signedIn()
+        && currentUser().role == 'staff'
+        && currentUser().isBanned != true
+        && request.resource.data.staffId == request.auth.uid
+        && request.resource.data.venueId == currentUser().staffVenueId
+        && request.resource.data.resolved == false
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.content is string
+        && request.resource.data.content.size() > 0;
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'resolved', 'resolvedAt', 'updatedAt'
+        ])
+        && request.resource.data.resolved is bool;
+      allow delete: if isAdmin();
+    }
+
+    match /venueReviews/{reviewId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.venueId is string
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && reviewId == request.resource.data.venueId + '_' + request.auth.uid;
+      allow delete: if false;
+    }
+
     match /coupons/{couponId} {
       allow read: if signedIn();
       allow write: if isAdmin();
@@ -208,7 +304,9 @@ service cloud.firestore {
 
     match /transactions/{transactionId} {
       allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
-      allow write: if isAdmin();
+      allow create: if isAdmin()
+        || (signedIn() && request.resource.data.userId == request.auth.uid);
+      allow update, delete: if isAdmin();
     }
 
     match /notifications/{notificationId} {
@@ -225,7 +323,6 @@ service cloud.firestore {
             'read',
             'createdAt'
           ])
-          && request.resource.data.userId == request.auth.uid
           && request.resource.data.title is string
           && request.resource.data.body is string
           && request.resource.data.type is string
@@ -251,14 +348,26 @@ service cloud.firestore {
         || (
           signedIn()
           && request.resource.data.createdBy == request.auth.uid
-          && request.resource.data.status == 'open'
+          && request.resource.data.status == 'pending_payment'
+          && request.resource.data.isActive == false
+          && request.resource.data.paymentStatus == 'unpaid'
           && request.resource.data.maxPlayers is int
           && request.resource.data.minPlayers is int
           && request.resource.data.minPlayers > 0
           && request.resource.data.maxPlayers >= request.resource.data.minPlayers
           && request.resource.data.availableSlots is int
           && request.resource.data.availableSlots >= 0
-          && request.resource.data.availableSlots < request.resource.data.maxPlayers
+          && request.resource.data.availableSlots <= request.resource.data.maxPlayers
+          && request.resource.data.estimatedPrice is int
+          && request.resource.data.estimatedPrice > 0
+          && request.resource.data.totalDurationMinutes is int
+          && request.resource.data.totalDurationMinutes > 0
+          && request.resource.data.hourlyRate == 50000
+          && request.resource.data.estimatedPrice * 60
+            == request.resource.data.totalDurationMinutes
+              * request.resource.data.hourlyRate
+          && request.resource.data.startAt is timestamp
+          && request.resource.data.startAt >= request.time + duration.value(2, 'd')
         );
       allow delete: if isAdmin();
       allow update: if isAdmin()
@@ -285,6 +394,19 @@ service cloud.firestore {
               'name', 'title', 'description', 'deadline', 'playerLevel',
               'playStyle', 'teamPreference', 'minPlayers', 'maxPlayers',
               'status', 'updatedAt'
+            ])
+          )
+          || (
+            resource.data.createdBy == request.auth.uid
+            && resource.data.status == 'pending_payment'
+            && resource.data.paymentStatus == 'unpaid'
+            && request.resource.data.status == 'open'
+            && request.resource.data.paymentStatus == 'paid'
+            && request.resource.data.paymentMethod == 'wallet'
+            && request.resource.data.isActive == true
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'paymentStatus', 'paymentMethod', 'status', 'isActive',
+              'paidAt', 'updatedAt'
             ])
           )
         );
@@ -354,8 +476,38 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.roomId is string
-        && memberId == request.resource.data.roomId + '_' + request.auth.uid;
-      allow update: if false;
+        && memberId == request.resource.data.roomId + '_' + request.auth.uid
+        && (
+          request.resource.data.status == 'pending'
+          || (
+            request.resource.data.status == 'approved'
+            && getAfter(
+              /databases/$(database)/documents/matchmaking_rooms/$(request.resource.data.roomId)
+            ).data.createdBy == request.auth.uid
+          )
+        );
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && resource.data.createdBy == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'memberCount', 'updatedAt'
+          ])
+          && request.resource.data.memberCount == resource.data.memberCount + 1
+          && request.resource.data.memberCount <= resource.data.maxMembers
+        )
+        || (
+          signedIn()
+          && get(
+            /databases/$(database)/documents/matchmaking_rooms/$(resource.data.roomId)
+          ).data.createdBy == request.auth.uid
+          && resource.data.status == 'pending'
+          && (request.resource.data.status == 'approved'
+            || request.resource.data.status == 'rejected')
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'reviewedAt'
+          ])
+        );
       allow delete: if isAdmin()
         || (signedIn() && resource.data.userId == request.auth.uid);
     }
