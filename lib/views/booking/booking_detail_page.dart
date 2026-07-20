@@ -137,6 +137,7 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
               sport:
                   booking.venue.sport.isNotEmpty ? booking.venue.sport.first : '—',
               amount: booking.amount,
+              addOns: booking.addOns,
             ),
             const SizedBox(height: 24),
             BookingDetailActionButtons(

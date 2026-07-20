@@ -45,9 +45,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     final address = user?.address.trim();
     final avatarUrl = user?.avatarUrl.trim();
     final venuesAsync = ref.watch(publicVenuesProvider);
-    final unreadNotifications = ref.watch(userNotificationsProvider)
-        .valueOrNull
-        ?.any((notification) => !notification.read) ?? false;
+    final unreadNotifications =
+        ref
+            .watch(userNotificationsProvider)
+            .valueOrNull
+            ?.any((notification) => !notification.read) ??
+        false;
     final firebaseUser = ref.watch(firebaseAuthStateProvider).valueOrNull;
     final favoriteIds = firebaseUser == null
         ? const <String>{}
@@ -84,6 +87,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         'Tất cả',
                         'Sự kiện',
                         'Ghép đội',
+                        'Tin tức',
                         'Đánh giá cao',
                         'Mở ngay',
                       ],
@@ -95,6 +99,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                         }
                         if (filter == 'Ghép đội') {
                           widget.onNav('matchmaking');
+                          return;
+                        }
+                        if (filter == 'Tin tức') {
+                          widget.onNav('news');
                           return;
                         }
                         setState(() => _activeFilter = filter);

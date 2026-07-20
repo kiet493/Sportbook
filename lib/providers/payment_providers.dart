@@ -2,6 +2,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/court_booking.dart';
+import '../models/community_models.dart';
 import '../models/payment_models.dart';
 import '../repositories/payment_repository.dart';
 import '../services/Firebase/payment_firestore_service.dart';
@@ -50,6 +51,23 @@ class VnpayCheckoutNotifier
       final session = await ref
           .read(paymentRepositoryProvider)
           .createVnpayPayment(bookings: bookings, coupon: coupon);
+      state = AsyncData(session);
+      return session;
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      return null;
+    }
+  }
+
+  Future<VnpayPaymentSession?> startEvent({
+    required SportEvent event,
+    Coupon? coupon,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      final session = await ref
+          .read(paymentRepositoryProvider)
+          .createEventVnpayPayment(event: event, coupon: coupon);
       state = AsyncData(session);
       return session;
     } catch (error, stackTrace) {

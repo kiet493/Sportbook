@@ -122,7 +122,156 @@ function checkoutData(snapshot) {
   };
 }
 
+async function createVnpayEventPayment(request) {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Vui lòng đăng nhập để thanh toán.");
+  }
+  const eventId = String(request.data?.eventId ?? "").trim();
+  const couponId = String(request.data?.couponId ?? "").trim();
+  if (!eventId) {
+    throw new HttpsError("invalid-argument", "Thiếu mã đơn sự kiện.");
+  }
+
+  const {tmnCode, hashSecret, returnUrl} = requireVnpayConfig();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
+  const eventRef = db.collection("events").doc(eventId);
+  const paymentRef = db.collection("payments").doc();
+  const transactionRef = db.collection("transactions").doc();
+  const couponRef = couponId ? db.collection("coupons").doc(couponId) : null;
+
+  return db.runTransaction(async (transaction) => {
+    const eventSnapshot = await transaction.get(eventRef);
+    if (!eventSnapshot.exists) {
+      throw new HttpsError("not-found", "Đơn sự kiện không còn tồn tại.");
+    }
+    const event = eventSnapshot.data();
+    if (event.createdBy !== uid) {
+      throw new HttpsError("permission-denied", "Đơn sự kiện không thuộc tài khoản này.");
+    }
+    if (event.paymentStatus === "paid") {
+      throw new HttpsError("already-exists", "Đơn sự kiện đã được thanh toán.");
+    }
+    if (event.status !== "pending_payment") {
+      throw new HttpsError("failed-precondition", "Đơn sự kiện không ở trạng thái chờ thanh toán.");
+    }
+
+    const previousPaymentId = String(event.paymentId ?? "").trim();
+    if (event.paymentStatus === "pending" && previousPaymentId) {
+      const previousSnapshot = await transaction.get(
+        db.collection("payments").doc(previousPaymentId),
+      );
+      if (previousSnapshot.exists) {
+        const previous = previousSnapshot.data();
+        const previousExpiry = asDate(previous.expiresAt);
+        if (previous.status === "pending" &&
+            previousExpiry?.getTime() > now.getTime()) {
+          const existing = checkoutData(previousSnapshot);
+          if (existing) return existing;
+        }
+      }
+    }
+
+    const subtotal = asInteger(event.estimatedPrice);
+    if (subtotal <= 0) {
+      throw new HttpsError("failed-precondition", "Giá trị đơn sự kiện không hợp lệ.");
+    }
+    let discount = 0;
+    let couponCode = "";
+    if (couponRef) {
+      const couponSnapshot = await transaction.get(couponRef);
+      if (!couponSnapshot.exists) {
+        throw new HttpsError("invalid-argument", "Mã giảm giá không tồn tại.");
+      }
+      const coupon = couponSnapshot.data();
+      const couponExpiry = asDate(coupon.expiresAt);
+      const valid = coupon.active !== false &&
+        subtotal >= asInteger(coupon.minOrder) &&
+        (!couponExpiry || couponExpiry.getTime() > now.getTime());
+      if (!valid) {
+        throw new HttpsError("failed-precondition", "Mã giảm giá không còn hợp lệ.");
+      }
+      discount = Math.min(Math.max(asInteger(coupon.discountAmount), 0), subtotal);
+      couponCode = String(coupon.code ?? "").trim().toUpperCase();
+    }
+    const amount = subtotal - discount;
+    if (amount < 5000) {
+      throw new HttpsError("failed-precondition", "VNPay yêu cầu tối thiểu 5.000đ.");
+    }
+
+    const params = {
+      vnp_Version: "2.1.0",
+      vnp_Command: "pay",
+      vnp_TmnCode: tmnCode,
+      vnp_Amount: String(amount * 100),
+      vnp_CreateDate: formatVnpayDate(now),
+      vnp_CurrCode: "VND",
+      vnp_ExpireDate: formatVnpayDate(expiresAt),
+      vnp_IpAddr: clientIp(request),
+      vnp_Locale: "vn",
+      vnp_OrderInfo: `Thanh toan su kien ${eventId}`,
+      vnp_OrderType: "other",
+      vnp_ReturnUrl: returnUrl,
+      vnp_TxnRef: paymentRef.id,
+    };
+    const paymentUrl = buildVnpayPaymentUrl(
+      sandboxPaymentUrl,
+      params,
+      hashSecret,
+    );
+    const commonData = {
+      bookingId: eventId,
+      bookingIds: [eventId],
+      eventId,
+      orderType: "event",
+      userId: uid,
+      subtotal,
+      amount,
+      discount,
+      couponCode,
+      method: "vnpay",
+      status: "pending",
+      vnpTxnRef: paymentRef.id,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      expiresAt: Timestamp.fromDate(expiresAt),
+    };
+    transaction.create(paymentRef, {
+      ...commonData,
+      _id: paymentRef.id,
+      transactionId: transactionRef.id,
+      paymentUrl,
+      environment: "sandbox",
+    });
+    transaction.create(transactionRef, {
+      ...commonData,
+      _id: transactionRef.id,
+      paymentId: paymentRef.id,
+    });
+    transaction.update(eventRef, {
+      paymentStatus: "pending",
+      paymentMethod: "vnpay",
+      paymentId: paymentRef.id,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return {
+      paymentId: paymentRef.id,
+      transactionId: transactionRef.id,
+      paymentUrl,
+      amount,
+      discount,
+      couponCode,
+      expiresAt: expiresAt.toISOString(),
+      reused: false,
+    };
+  });
+}
+
 async function createVnpayPayment(request) {
+  if (String(request.data?.orderType ?? "") === "event") {
+    return createVnpayEventPayment(request);
+  }
   const uid = request.auth?.uid;
   if (!uid) {
     throw new HttpsError("unauthenticated", "Vui lòng đăng nhập để thanh toán.");
@@ -384,6 +533,38 @@ exports.createVnpayPayment = onCall(
   },
 );
 
+exports.cancelBookingWithRefund = onCall(callableFunctionOptions, async (request) => {
+  const uid = request.auth?.uid;
+  const bookingId = String(request.data?.bookingId ?? "").trim();
+  if (!uid) throw new HttpsError("unauthenticated", "Vui lòng đăng nhập.");
+  if (!bookingId) throw new HttpsError("invalid-argument", "Thiếu mã booking.");
+  const bookingRef = db.collection("bookings").doc(bookingId);
+  const userRef = db.collection("users").doc(uid);
+  return db.runTransaction(async (transaction) => {
+    const bookingSnapshot = await transaction.get(bookingRef);
+    if (!bookingSnapshot.exists) throw new HttpsError("not-found", "Không tìm thấy booking.");
+    const booking = bookingSnapshot.data();
+    if (booking.userId !== uid) throw new HttpsError("permission-denied", "Booking không thuộc tài khoản này.");
+    if (booking.status === "cancelled") return {refunded: 0, balance: 0};
+    const refund = Math.max(asInteger(booking.totalPrice), 0);
+    const userSnapshot = await transaction.get(userRef);
+    const balance = Math.max(asInteger(userSnapshot.data()?.walletBalance), 0) + refund;
+    transaction.update(bookingRef, {status: "cancelled", updatedAt: FieldValue.serverTimestamp()});
+    transaction.set(userRef, {walletBalance: balance, updatedAt: FieldValue.serverTimestamp()}, {merge: true});
+    transaction.set(db.collection("walletTransactions").doc(), {
+      userId: uid, bookingId, type: "refund", amount: refund,
+      balanceAfter: balance, createdAt: FieldValue.serverTimestamp(),
+    });
+    const venueId = String(booking.venueId ?? "");
+    const dateKey = String(booking.dateKey ?? "");
+    const courtId = String(booking.fieldId ?? booking.courtId ?? "");
+    for (let minute = asInteger(booking.startMinutes); minute < asInteger(booking.endMinutes); minute += 30) {
+      transaction.delete(db.collection("bookingSlotLocks").doc(`${venueId}_${dateKey}_${courtId}_${minute}`));
+    }
+    return {refunded: refund, balance};
+  });
+});
+
 async function applyVnpayResult(params, confirmationSource) {
   const paymentId = String(params.vnp_TxnRef ?? "").trim();
   if (!paymentId) return {outcome: "invalid-data", updated: false};
@@ -433,6 +614,70 @@ async function applyVnpayResult(params, confirmationSource) {
         paymentId,
         bookingId,
         updated: false,
+      };
+    }
+
+    if (payment.orderType === "event") {
+      const eventId = String(payment.eventId ?? bookingId).trim();
+      const eventRef = db.collection("events").doc(eventId);
+      const transactionRef = db.collection("transactions").doc(transactionId);
+      const eventSnapshot = await transaction.get(eventRef);
+      const transactionSnapshot = await transaction.get(transactionRef);
+      if (!eventSnapshot.exists || !transactionSnapshot.exists) {
+        return {
+          outcome: "invalid-data",
+          paymentId,
+          bookingId: eventId,
+          updated: false,
+        };
+      }
+      const event = eventSnapshot.data();
+      if (String(event.paymentId ?? "") !== paymentId) {
+        return {
+          outcome: "event-mismatch",
+          paymentId,
+          bookingId: eventId,
+          updated: false,
+        };
+      }
+      const serverTime = FieldValue.serverTimestamp();
+      const gatewayData = {
+        status: nextStatus,
+        vnpTransactionNo: String(params.vnp_TransactionNo ?? ""),
+        vnpResponseCode: String(params.vnp_ResponseCode ?? ""),
+        vnpTransactionStatus: String(params.vnp_TransactionStatus ?? ""),
+        bankCode: String(params.vnp_BankCode ?? ""),
+        vnpBankCode: String(params.vnp_BankCode ?? ""),
+        vnpPayDate: String(params.vnp_PayDate ?? ""),
+        confirmationSource,
+        confirmedAt: serverTime,
+        updatedAt: serverTime,
+      };
+      if (nextStatus === "paid") gatewayData.paidAt = serverTime;
+      if (nextStatus === "cancelled") gatewayData.cancelledAt = serverTime;
+      if (nextStatus !== "paid" && nextStatus !== "cancelled") {
+        gatewayData.failedAt = serverTime;
+      }
+      transaction.update(paymentRef, gatewayData);
+      transaction.update(transactionRef, gatewayData);
+      transaction.update(eventRef, nextStatus === "paid" ? {
+        paymentStatus: "paid",
+        paymentMethod: "vnpay",
+        status: "open",
+        isActive: true,
+        paidAt: serverTime,
+        updatedAt: serverTime,
+      } : {
+        paymentStatus: "unpaid",
+        paymentMethod: "vnpay",
+        paymentId: FieldValue.delete(),
+        updatedAt: serverTime,
+      });
+      return {
+        outcome: nextStatus,
+        paymentId,
+        bookingId: eventId,
+        updated: true,
       };
     }
 

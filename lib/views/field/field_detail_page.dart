@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/court_booking.dart';
 import '../../models/venue.dart';
+import '../../models/venue_review.dart';
 import '../../providers/booking_providers.dart';
 import '../../providers/firebase_providers.dart';
+import '../../providers/registration_providers.dart';
 import 'widgets/widgets.dart';
 
 class FieldDetailPage extends ConsumerStatefulWidget {
@@ -50,6 +52,8 @@ class _FieldDetailPageState extends ConsumerState<FieldDetailPage> {
         : ref.watch(favoriteVenueIdsProvider(firebaseUser.uid)).valueOrNull ??
             const <String>{};
     final isFavorite = favoriteIds.contains(widget.venue.firestoreId);
+    final reviews = ref.watch(venueReviewsProvider(widget.venue.firestoreId)).valueOrNull ?? const <VenueReview>[];
+    final rating = reviews.isEmpty ? widget.venue.rating : reviews.fold<int>(0, (sum, review) => sum + review.rating) / reviews.length;
     final similarVenues = ref
             .watch(publicVenuesProvider)
             .valueOrNull
@@ -89,7 +93,7 @@ class _FieldDetailPageState extends ConsumerState<FieldDetailPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _buildTitleSection(),
+                        _buildTitleSection(rating, reviews.length),
                         const SizedBox(height: 10),
                         FieldSportsTags(sports: widget.venue.sport),
                         const SizedBox(height: 12),
@@ -104,6 +108,8 @@ class _FieldDetailPageState extends ConsumerState<FieldDetailPage> {
                         const Divider(color: Color(0xFFE2E8F0)),
                         const SizedBox(height: 16),
                         _buildDescriptionSection(),
+                        const SizedBox(height: 20),
+                        _buildReviewsSection(reviews),
                         const SizedBox(height: 20),
                         if (amenities.isNotEmpty) _buildAmenitiesSection(amenities),
                         const SizedBox(height: 20),
@@ -126,7 +132,7 @@ class _FieldDetailPageState extends ConsumerState<FieldDetailPage> {
     );
   }
 
-  Widget _buildTitleSection() {
+  Widget _buildTitleSection(double rating, int reviewCount) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,8 +150,8 @@ class _FieldDetailPageState extends ConsumerState<FieldDetailPage> {
         ),
         const SizedBox(width: 8),
         FieldRatingBadge(
-          rating: widget.venue.rating,
-          reviewCount: widget.venue.reviews,
+          rating: rating,
+          reviewCount: reviewCount,
           fontSize: 12,
           iconSize: 13,
         ),
@@ -202,6 +208,51 @@ class _FieldDetailPageState extends ConsumerState<FieldDetailPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildReviewsSection(List<VenueReview> reviews) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          const Expanded(child: Text('Đánh giá & bình luận', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+          TextButton.icon(onPressed: _showReviewDialog, icon: const Icon(Icons.rate_review_outlined, size: 18), label: const Text('Đánh giá')),
+        ]),
+        if (reviews.isEmpty) const Text('Chưa có đánh giá nào.')
+        else ...reviews.map((review) => ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: CircleAvatar(child: Text(review.userName.isEmpty ? '?' : review.userName.substring(0, 1).toUpperCase())),
+          title: Text(review.userName),
+          subtitle: Text(review.comment.isEmpty ? 'Không có bình luận.' : review.comment),
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.star, color: Colors.amber, size: 17), Text('${review.rating}')]),
+        )),
+      ],
+    );
+  }
+
+  Future<void> _showReviewDialog() async {
+    final user = ref.read(sessionProvider)?.user;
+    if (user == null) return;
+    var rating = 5;
+    final comment = TextEditingController();
+    final saved = await showDialog<bool>(context: context, builder: (context) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: const Text('Đánh giá sân'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(5, (index) => IconButton(
+            onPressed: () => setDialogState(() => rating = index + 1),
+            icon: Icon(index < rating ? Icons.star : Icons.star_border, color: Colors.amber),
+          ))),
+          TextField(controller: comment, maxLines: 3, decoration: const InputDecoration(hintText: 'Viết bình luận của bạn')),
+        ]),
+        actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')), FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Gửi'))],
+      ),
+    ));
+    if (saved != true) return;
+    await ref.read(bookingFirestoreServiceProvider).saveVenueReview(review: VenueReview(
+      id: '', venueId: widget.venue.firestoreId, userId: user.id, userName: user.fullName,
+      rating: rating, comment: comment.text.trim(), createdAt: DateTime.now(),
+    ));
   }
 
   Widget _buildDescriptionSection() {

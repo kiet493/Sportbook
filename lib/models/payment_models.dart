@@ -88,6 +88,8 @@ class VnpayPaymentSession {
 class VnpayPaymentStatus {
   final String id;
   final String bookingId;
+  final String eventId;
+  final String orderType;
   final String transactionId;
   final String status;
   final String responseCode;
@@ -95,6 +97,8 @@ class VnpayPaymentStatus {
   const VnpayPaymentStatus({
     required this.id,
     required this.bookingId,
+    this.eventId = '',
+    this.orderType = 'booking',
     required this.transactionId,
     required this.status,
     required this.responseCode,
@@ -107,6 +111,8 @@ class VnpayPaymentStatus {
       VnpayPaymentStatus(
         id: id,
         bookingId: (data['bookingId'] ?? '').toString(),
+        eventId: (data['eventId'] ?? '').toString(),
+        orderType: (data['orderType'] ?? 'booking').toString(),
         transactionId: (data['transactionId'] ?? '').toString(),
         status: (data['status'] ?? '').toString(),
         responseCode: (data['vnpResponseCode'] ?? '').toString(),
@@ -117,6 +123,8 @@ class PaymentTransaction {
   final String id;
   final String paymentId;
   final String bookingId;
+  final String eventId;
+  final String orderType;
   final String userId;
   final int amount;
   final int discount;
@@ -131,6 +139,8 @@ class PaymentTransaction {
     required this.id,
     this.paymentId = '',
     required this.bookingId,
+    this.eventId = '',
+    this.orderType = 'booking',
     required this.userId,
     required this.amount,
     required this.discount,
@@ -150,6 +160,8 @@ class PaymentTransaction {
         id: id,
         paymentId: (data['paymentId'] ?? '').toString(),
         bookingId: (data['bookingId'] ?? '').toString(),
+        eventId: (data['eventId'] ?? '').toString(),
+        orderType: (data['orderType'] ?? 'booking').toString(),
         userId: (data['userId'] ?? '').toString(),
         amount: (data['amount'] as num?)?.round() ?? 0,
         discount: (data['discount'] as num?)?.round() ?? 0,

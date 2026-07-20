@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/user_model.dart';
+import '../../../core/utils/currency_formatter.dart';
 import 'profile_logout_button.dart';
 import 'profile_menu_button.dart';
 import 'profile_user_card.dart';
@@ -38,6 +39,17 @@ class ProfileContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ProfileUserCard(user: user),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(16)),
+            child: Row(children: [
+              const Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF047857)),
+              const SizedBox(width: 10),
+              const Expanded(child: Text('Số dư ví', style: TextStyle(fontWeight: FontWeight.w700))),
+              Text('${formatVnd(user?.walletBalance ?? 0)}đ', style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF047857))),
+            ]),
+          ),
           const SizedBox(height: 16),
           ProfileMenuButton(label: "Chỉnh sửa hồ sơ", onTap: onEditProfileTap),
           const SizedBox(height: 12),

@@ -1,4 +1,5 @@
 import '../models/court_booking.dart';
+import '../models/community_models.dart';
 import '../models/payment_models.dart';
 import '../services/Firebase/payment_firestore_service.dart';
 
@@ -55,6 +56,27 @@ class PaymentRepository {
     }
     return _service.createVnpayPayment(
       bookingIds: bookings.map((booking) => booking.id).toList(growable: false),
+      couponId: coupon?.id,
+    );
+  }
+
+  Future<VnpayPaymentSession> createEventVnpayPayment({
+    required SportEvent event,
+    Coupon? coupon,
+  }) {
+    if (event.id.isEmpty ||
+        event.estimatedPrice <= 0 ||
+        event.status != 'pending_payment') {
+      throw const PaymentValidationException(
+        'Đơn sự kiện không hợp lệ để thanh toán.',
+      );
+    }
+    if (coupon != null &&
+        !coupon.isApplicableTo(event.estimatedPrice, DateTime.now())) {
+      throw const PaymentValidationException('Mã giảm giá không còn hợp lệ.');
+    }
+    return _service.createEventVnpayPayment(
+      eventId: event.id,
       couponId: coupon?.id,
     );
   }

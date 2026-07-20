@@ -304,6 +304,12 @@ class _SlotCell extends StatelessWidget {
         ? 'Khung giờ này không còn trống.'
         : minute < minimumStartMinutes
         ? 'Không thể đặt khung giờ đã qua.'
+        : blocking?.status == CourtSlotStatus.event
+        ? 'Sân này đang được dùng để tổ chức sự kiện.'
+        : blocking?.status == CourtSlotStatus.blocked
+        ? 'Khung giờ này đang được bảo trì.'
+        : blocking != null
+        ? 'Khung giờ này đã được đặt.'
         : minute + durationMinutes > BookingScheduleBoard.endMinute
         ? 'Thời lượng đã chọn vượt quá giờ đóng cửa.'
         : !_hasWholeDurationAvailable()
@@ -311,7 +317,9 @@ class _SlotCell extends StatelessWidget {
         : 'Khung giờ này đã được đặt.';
 
     return MouseRegion(
-      cursor: canSelect ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
+      cursor: canSelect
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.forbidden,
       child: InkWell(
         onTap: () {
           if (canSelect) {
@@ -321,20 +329,22 @@ class _SlotCell extends StatelessWidget {
           }
         },
         child: Container(
-        width: BookingScheduleBoard.cellWidth,
-        height: BookingScheduleBoard.rowHeight,
-        decoration: BoxDecoration(
-          color: bgColor,
-          border: Border.all(
-            color: selected ? const Color(0xFF111827) : const Color(0xFF9CA3AF),
-            width: selected ? 1.8 : 0.55,
+          width: BookingScheduleBoard.cellWidth,
+          height: BookingScheduleBoard.rowHeight,
+          decoration: BoxDecoration(
+            color: bgColor,
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFF111827)
+                  : const Color(0xFF9CA3AF),
+              width: selected ? 1.8 : 0.55,
+            ),
           ),
-        ),
-        child: blocking != null
-            ? const SizedBox.shrink()
-            : selected
-            ? const Icon(Icons.check, color: Color(0xFF047857), size: 18)
-            : null,
+          child: blocking != null
+              ? const SizedBox.shrink()
+              : selected
+              ? const Icon(Icons.check, color: Color(0xFF047857), size: 18)
+              : null,
         ),
       ),
     );

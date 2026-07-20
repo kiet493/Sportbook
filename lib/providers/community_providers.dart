@@ -76,6 +76,16 @@ class CommunityActionNotifier extends AsyncNotifier<void> {
     );
   }
 
+  Future<String?> reviewJoinRequest({
+    required String roomId,
+    required String userId,
+    required bool approve,
+  }) => _execute(
+    () => ref
+        .read(communityRepositoryProvider)
+        .reviewJoinRequest(roomId: roomId, userId: userId, approve: approve),
+  );
+
   UserModel? _authenticatedSessionUser() {
     final user = ref.read(sessionProvider)?.user;
     final firebaseUser = ref.read(firebaseAuthStateProvider).valueOrNull;
@@ -121,6 +131,49 @@ class CommunityActionNotifier extends AsyncNotifier<void> {
 final communityActionProvider =
     AsyncNotifierProvider<CommunityActionNotifier, void>(
       CommunityActionNotifier.new,
+    );
+
+class CreateEventNotifier extends AsyncNotifier<SportEvent?> {
+  @override
+  SportEvent? build() => null;
+
+  Future<String?> create(SportEvent event) async {
+    final user = ref.read(sessionProvider)?.user;
+    final firebaseUser = ref.read(firebaseAuthStateProvider).valueOrNull;
+    if (user == null || firebaseUser == null || user.id != firebaseUser.uid) {
+      return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+    }
+    state = const AsyncLoading();
+    try {
+      final saved = await ref
+          .read(communityRepositoryProvider)
+          .createEvent(event: event, creator: user);
+      state = AsyncData(saved);
+      ref.invalidate(eventsProvider);
+      return null;
+    } on CommunityValidationException catch (error) {
+      state = const AsyncData(null);
+      return error.message;
+    } on EventSlotUnavailableException {
+      state = const AsyncData(null);
+      return 'Một hoặc nhiều khung giờ đã có người đặt hoặc đang bảo trì.';
+    } on FirebaseException catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      return communityFirestoreErrorMessage(error);
+    } catch (error, stackTrace) {
+      debugPrint('Create event error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      state = AsyncError(error, stackTrace);
+      return error is StateError
+          ? error.message.toString()
+          : 'Không thể tạo sự kiện lúc này.';
+    }
+  }
+}
+
+final createEventProvider =
+    AsyncNotifierProvider<CreateEventNotifier, SportEvent?>(
+      CreateEventNotifier.new,
     );
 
 class CreateMatchmakingNotifier extends AsyncNotifier<MatchmakingRoom?> {

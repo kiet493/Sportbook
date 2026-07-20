@@ -93,6 +93,9 @@ class UserModel {
   final DateTime? dateOfBirth;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final int walletBalance;
+  final String staffVenueId;
+  final String staffVenueName;
 
   const UserModel({
     required this.id,
@@ -107,6 +110,9 @@ class UserModel {
     required this.dateOfBirth,
     required this.createdAt,
     required this.updatedAt,
+    this.walletBalance = 0,
+    this.staffVenueId = '',
+    this.staffVenueName = '',
   });
 
   /// Creates a [UserModel] with the standard defaults used right after
@@ -133,6 +139,9 @@ class UserModel {
       dateOfBirth: null,
       createdAt: now,
       updatedAt: now,
+      walletBalance: 0,
+      staffVenueId: '',
+      staffVenueName: '',
     );
   }
 
@@ -151,6 +160,9 @@ class UserModel {
     dateOfBirth: null,
     createdAt: DateTime.fromMillisecondsSinceEpoch(0),
     updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+    walletBalance: 0,
+    staffVenueId: '',
+    staffVenueName: '',
   );
 
   bool get isEmpty => id.isEmpty;
@@ -172,6 +184,9 @@ class UserModel {
     bool clearDateOfBirth = false,
     DateTime? createdAt,
     DateTime? updatedAt,
+    int? walletBalance,
+    String? staffVenueId,
+    String? staffVenueName,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -186,6 +201,9 @@ class UserModel {
       dateOfBirth: clearDateOfBirth ? null : (dateOfBirth ?? this.dateOfBirth),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      walletBalance: walletBalance ?? this.walletBalance,
+      staffVenueId: staffVenueId ?? this.staffVenueId,
+      staffVenueName: staffVenueName ?? this.staffVenueName,
     );
   }
 
@@ -213,6 +231,9 @@ class UserModel {
       'dob': dateOfBirth?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'walletBalance': walletBalance,
+      'staffVenueId': staffVenueId,
+      'staffVenueName': staffVenueName,
     };
   }
 
@@ -270,6 +291,11 @@ class UserModel {
       dateOfBirth: parseDate(json['dateOfBirth'] ?? json['dob']),
       createdAt: parseDate(json['createdAt']) ?? now,
       updatedAt: parseDate(json['updatedAt']) ?? now,
+      walletBalance: json['walletBalance'] is num
+          ? (json['walletBalance'] as num).round()
+          : 0,
+      staffVenueId: _readString(json['staffVenueId']) ?? '',
+      staffVenueName: _readString(json['staffVenueName']) ?? '',
     );
   }
 

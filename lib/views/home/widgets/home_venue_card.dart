@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../models/venue.dart';
+import '../../../providers/booking_providers.dart';
 
 /// Full venue card displayed in the "Nearby" section on the Home page.
 ///
 /// Renders an image stack (gradient overlay, sport-type tags, availability
 /// badge, favourite toggle) followed by an info panel with name, rating,
 /// meta data, price, and a booking button.
-class HomeVenueCard extends StatelessWidget {
+class HomeVenueCard extends ConsumerWidget {
   final Venue venue;
   final bool isFavorite;
   final VoidCallback onTap;
@@ -25,7 +27,8 @@ class HomeVenueCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasSlots = ref.watch(venueTodayAvailabilityProvider(venue.firestoreId)).valueOrNull ?? false;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: GestureDetector(
@@ -49,6 +52,7 @@ class HomeVenueCard extends StatelessWidget {
             children: [
               _VenueImageStack(
                 venue: venue,
+                hasSlots: hasSlots,
                 isFavorite: isFavorite,
                 onFavoriteTap: onFavoriteTap,
               ),
@@ -65,11 +69,13 @@ class HomeVenueCard extends StatelessWidget {
 
 class _VenueImageStack extends StatelessWidget {
   final Venue venue;
+  final bool hasSlots;
   final bool isFavorite;
   final VoidCallback onFavoriteTap;
 
   const _VenueImageStack({
     required this.venue,
+    required this.hasSlots,
     required this.isFavorite,
     required this.onFavoriteTap,
   });
@@ -110,10 +116,10 @@ class _VenueImageStack extends StatelessWidget {
         ),
         // Available badge (bottom-left)
         if (venue.available)
-          const Positioned(
+          Positioned(
             bottom: 12,
             left: 12,
-            child: _AvailableBadge(),
+            child: _AvailableBadge(hasSlots: hasSlots),
           ),
         // Favourite toggle (top-right)
         Positioned(
@@ -156,21 +162,22 @@ class _SportTag extends StatelessWidget {
 }
 
 class _AvailableBadge extends StatelessWidget {
-  const _AvailableBadge();
+  final bool hasSlots;
+  const _AvailableBadge({required this.hasSlots});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF22C55E),
+        color: hasSlots ? const Color(0xFF22C55E) : const Color(0xFFDC2626),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(Icons.check_circle_outline, color: Colors.white, size: 10),
-          SizedBox(width: 4),
+        children: [
+          Icon(hasSlots ? Icons.check_circle_outline : Icons.event_busy, color: Colors.white, size: 10),
+          SizedBox(width: 4), /* availability label
           Text(
             'Còn chỗ hôm nay',
             style: TextStyle(
@@ -179,6 +186,7 @@ class _AvailableBadge extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
+          */ Text(hasSlots ? 'Còn chỗ hôm nay' : 'Hết chỗ hôm nay', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
         ],
       ),
     );

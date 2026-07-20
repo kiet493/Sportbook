@@ -13,6 +13,7 @@ class BookingDetailInfoCard extends StatelessWidget {
   final String time;
   final String sport;
   final String amount;
+  final List<String> addOns;
 
   const BookingDetailInfoCard({
     super.key,
@@ -22,6 +23,7 @@ class BookingDetailInfoCard extends StatelessWidget {
     required this.time,
     required this.sport,
     required this.amount,
+    this.addOns = const [],
   });
 
   factory BookingDetailInfoCard.fromBooking({
@@ -64,6 +66,8 @@ class BookingDetailInfoCard extends StatelessWidget {
           InfoRow(label: 'Ngày', value: date),
           InfoRow(label: 'Giờ', value: time),
           InfoRow(label: 'Loại sân', value: sport),
+          if (addOns.isNotEmpty)
+            InfoRow(label: 'Đồ uống / thuê vợt', value: addOns.join(', ')),
           InfoRow(
             label: 'Số tiền',
             value: amount,

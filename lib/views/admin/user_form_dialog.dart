@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
+import '../../providers/booking_providers.dart';
 import '../../providers/manage_users_providers.dart';
 import '../../repositories/user_repository.dart';
 import 'widgets/user_form_fields.dart';
@@ -32,6 +33,8 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
   String _role = UserRole.user;
   String _gender = UserGender.other;
   String _status = UserStatus.active;
+  String _staffVenueId = '';
+  String _staffVenueName = '';
   bool _saving = false;
 
   final _formKey = GlobalKey<FormState>();
@@ -49,6 +52,8 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
       _role = u.role;
       _gender = u.gender;
       _status = u.status;
+      _staffVenueId = u.staffVenueId;
+      _staffVenueName = u.staffVenueName;
     }
   }
 
@@ -81,26 +86,32 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
           role: _role,
           gender: _gender,
           status: _status,
+          staffVenueId: _staffVenueId,
+          staffVenueName: _staffVenueName,
         );
         await notifier.updateUser(updated);
       } else {
-        final created = UserModel.newUser(
-          id: 'u_${DateTime.now().microsecondsSinceEpoch}',
-          fullName: _name.text.trim(),
-          email: _email.text.trim(),
-          phone: _phone.text.trim(),
-          role: _role,
-          gender: _gender,
-        ).copyWith(address: _address.text.trim(), status: _status);
+        final created =
+            UserModel.newUser(
+              id: 'u_${DateTime.now().microsecondsSinceEpoch}',
+              fullName: _name.text.trim(),
+              email: _email.text.trim(),
+              phone: _phone.text.trim(),
+              role: _role,
+              gender: _gender,
+            ).copyWith(
+              address: _address.text.trim(),
+              status: _status,
+              staffVenueId: _staffVenueId,
+              staffVenueName: _staffVenueName,
+            );
         await notifier.create(created, password: _password.text);
       }
       if (!mounted) return;
       Navigator.of(context).pop(true);
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            _isEdit ? 'Đã cập nhật tài khoản' : 'Đã tạo tài khoản',
-          ),
+          content: Text(_isEdit ? 'Đã cập nhật tài khoản' : 'Đã tạo tài khoản'),
         ),
       );
     } on UserValidationException catch (e) {
@@ -136,8 +147,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _DialogHeader(
-                    title:
-                        _isEdit ? 'Chỉnh sửa tài khoản' : 'Tạo tài khoản',
+                    title: _isEdit ? 'Chỉnh sửa tài khoản' : 'Tạo tài khoản',
                     onClose: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(height: 8),
@@ -154,10 +164,65 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                     role: _role,
                     gender: _gender,
                     status: _status,
-                    onRoleChanged: (v) => setState(() => _role = v),
+                    onRoleChanged: (v) => setState(() {
+                      _role = v;
+                      if (v != UserRole.staff) {
+                        _staffVenueId = '';
+                        _staffVenueName = '';
+                      }
+                    }),
                     onGenderChanged: (v) => setState(() => _gender = v),
                     onStatusChanged: (v) => setState(() => _status = v),
                   ),
+                  if (_role == UserRole.staff) ...[
+                    const SizedBox(height: 12),
+                    ref
+                        .watch(managedVenuesProvider)
+                        .when(
+                          loading: () => const LinearProgressIndicator(),
+                          error: (error, _) => Text(
+                            'Không tải được cụm sân: $error',
+                            style: const TextStyle(color: AppColors.danger),
+                          ),
+                          data: (venues) => DropdownButtonFormField<String>(
+                            key: ValueKey(_staffVenueId),
+                            initialValue:
+                                venues.any((venue) => venue.id == _staffVenueId)
+                                ? _staffVenueId
+                                : null,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Cụm sân phụ trách',
+                              prefixIcon: Icon(Icons.stadium_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                            items: venues
+                                .where((venue) => venue.active)
+                                .map(
+                                  (venue) => DropdownMenuItem(
+                                    value: venue.id,
+                                    child: Text(
+                                      venue.name,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) => setState(() {
+                              _staffVenueId = value ?? '';
+                              _staffVenueName =
+                                  venues
+                                      .where((venue) => venue.id == value)
+                                      .firstOrNull
+                                      ?.name ??
+                                  '';
+                            }),
+                            validator: (value) => value == null || value.isEmpty
+                                ? 'Vui lòng chọn cụm sân cho staff'
+                                : null,
+                          ),
+                        ),
+                  ],
                   const SizedBox(height: 20),
                   FormActions(
                     saving: _saving,
@@ -196,10 +261,7 @@ class _DialogHeader extends StatelessWidget {
             ),
           ),
         ),
-        IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: onClose,
-        ),
+        IconButton(icon: const Icon(Icons.close), onPressed: onClose),
       ],
     );
   }

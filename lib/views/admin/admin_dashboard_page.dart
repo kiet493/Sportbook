@@ -14,6 +14,7 @@ import 'manage_users_page.dart';
 import 'manage_venues_page.dart';
 import 'manage_maintenance_page.dart';
 import 'statistics_page.dart';
+import 'staff_reports_page.dart';
 
 enum _AdminSection {
   dashboard,
@@ -26,6 +27,7 @@ enum _AdminSection {
   news,
   policies,
   statistics,
+  reports,
 }
 
 class AdminDashboardPage extends ConsumerStatefulWidget {
@@ -47,7 +49,9 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
       _AdminSection.users => ManageUsersPage(onBack: _showDashboard),
       _AdminSection.venues => ManageVenuesPage(onBack: _showDashboard),
       _AdminSection.bookings => AdminBookingsPage(onBack: _showDashboard),
-      _AdminSection.maintenance => ManageMaintenancePage(onBack: _showDashboard),
+      _AdminSection.maintenance => ManageMaintenancePage(
+        onBack: _showDashboard,
+      ),
       _AdminSection.equipment => ManageEquipmentPage(onBack: _showDashboard),
       _AdminSection.consumables => ManageConsumablesPage(
         onBack: _showDashboard,
@@ -55,6 +59,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
       _AdminSection.news => ManageNewsPage(onBack: _showDashboard),
       _AdminSection.policies => ManagePoliciesPage(onBack: _showDashboard),
       _AdminSection.statistics => StatisticsPage(onBack: _showDashboard),
+      _AdminSection.reports => StaffReportsPage(onBack: _showDashboard),
       _AdminSection.dashboard => _DashboardHome(
         onOpenUsers: () => _open(_AdminSection.users),
         onOpenVenues: () => _open(_AdminSection.venues),
@@ -65,6 +70,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
         onOpenNews: () => _open(_AdminSection.news),
         onOpenPolicies: () => _open(_AdminSection.policies),
         onOpenStatistics: () => _open(_AdminSection.statistics),
+        onOpenReports: () => _open(_AdminSection.reports),
         onLogout: _confirmLogout,
         loggingOut: _loggingOut,
       ),
@@ -123,6 +129,7 @@ class _DashboardHome extends ConsumerWidget {
   final VoidCallback onOpenNews;
   final VoidCallback onOpenPolicies;
   final VoidCallback onOpenStatistics;
+  final VoidCallback onOpenReports;
   final VoidCallback onLogout;
   final bool loggingOut;
 
@@ -136,6 +143,7 @@ class _DashboardHome extends ConsumerWidget {
     required this.onOpenNews,
     required this.onOpenPolicies,
     required this.onOpenStatistics,
+    required this.onOpenReports,
     required this.onLogout,
     required this.loggingOut,
   });
@@ -313,6 +321,14 @@ class _DashboardHome extends ConsumerWidget {
                 subtitle: 'Người dùng, sân, booking, nội dung và kho',
                 color: const Color(0xFFDC2626),
                 onTap: onOpenStatistics,
+              ),
+              const SizedBox(height: 10),
+              _AdminActionCard(
+                icon: Icons.report_problem_outlined,
+                title: 'Báo cáo từ staff',
+                subtitle: 'Xem và đánh dấu các báo cáo đã giải quyết',
+                color: const Color(0xFFB45309),
+                onTap: onOpenReports,
               ),
               const SizedBox(height: 24),
               OutlinedButton.icon(

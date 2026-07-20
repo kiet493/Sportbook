@@ -6,20 +6,24 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/utils/currency_formatter.dart';
 import '../../models/court_booking.dart';
+import '../../models/community_models.dart';
 import '../../models/payment_models.dart';
 import '../../providers/payment_providers.dart';
+import '../../providers/registration_providers.dart';
 
 class PaymentPage extends ConsumerStatefulWidget {
   final List<CourtBooking> bookings;
+  final SportEvent? event;
   final VoidCallback onBack;
   final ValueChanged<PaymentTransaction> onPaid;
 
   const PaymentPage({
     super.key,
-    required this.bookings,
+    this.bookings = const [],
+    this.event,
     required this.onBack,
     required this.onPaid,
-  }) : assert(bookings.length > 0);
+  }) : assert(bookings.length > 0 || event != null);
 
   @override
   ConsumerState<PaymentPage> createState() => _PaymentPageState();
@@ -28,13 +32,16 @@ class PaymentPage extends ConsumerStatefulWidget {
 class _PaymentPageState extends ConsumerState<PaymentPage> {
   Coupon? _coupon;
   String? _launchError;
+  bool _useWallet = false;
 
-  CourtBooking get _booking => widget.bookings.first;
+  CourtBooking? get _booking => widget.bookings.firstOrNull;
 
-  int get _subtotal => widget.bookings.fold<int>(
-    0,
-    (total, booking) => total + booking.totalPrice,
-  );
+  int get _subtotal =>
+      widget.event?.estimatedPrice ??
+      widget.bookings.fold<int>(
+        0,
+        (total, booking) => total + booking.totalPrice,
+      );
 
   int get _discount =>
       _coupon?.isApplicableTo(_subtotal, DateTime.now()) == true
@@ -43,9 +50,13 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
   Future<void> _startPayment() async {
     setState(() => _launchError = null);
-    final session = await ref
-        .read(vnpayCheckoutProvider.notifier)
-        .start(bookings: widget.bookings, coupon: _coupon);
+    final session = widget.event == null
+        ? await ref
+              .read(vnpayCheckoutProvider.notifier)
+              .start(bookings: widget.bookings, coupon: _coupon)
+        : await ref
+              .read(vnpayCheckoutProvider.notifier)
+              .startEvent(event: widget.event!, coupon: _coupon);
     if (!mounted) return;
     if (session == null) {
       final error = ref.read(vnpayCheckoutProvider).error;
@@ -53,6 +64,28 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       return;
     }
     await _openVnpay(session.paymentUrl);
+  }
+
+  Future<void> _payWithWallet() async {
+    final user = ref.read(sessionProvider)?.user;
+    if (user == null) return;
+    try {
+      final transaction = widget.event == null
+          ? await ref
+                .read(paymentFirestoreServiceProvider)
+                .payWithWallet(userId: user.id, bookings: widget.bookings)
+          : await ref
+                .read(paymentFirestoreServiceProvider)
+                .payEventWithWallet(userId: user.id, event: widget.event!);
+      ref
+          .read(sessionProvider.notifier)
+          .setUser(
+            user.copyWith(walletBalance: user.walletBalance - _subtotal),
+          );
+      if (mounted) widget.onPaid(transaction);
+    } catch (error) {
+      if (mounted) setState(() => _launchError = error.toString());
+    }
   }
 
   Future<void> _openVnpay(Uri paymentUrl) async {
@@ -70,6 +103,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   @override
   Widget build(BuildContext context) {
     final coupons = ref.watch(couponsProvider);
+    final walletBalance = ref.watch(sessionProvider)?.user.walletBalance ?? 0;
     final checkout = ref.watch(vnpayCheckoutProvider);
     final session = checkout.valueOrNull;
     final paymentStatus = session == null
@@ -98,17 +132,32 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
             child: ListTile(
               contentPadding: const EdgeInsets.all(16),
               title: Text(
-                _booking.venueName,
+                widget.event?.title ?? _booking!.venueName,
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
               subtitle: Text(
-                widget.bookings.length == 1
-                    ? '${_booking.courtName}\n${_booking.timeRange}'
+                widget.event != null
+                    ? '${widget.event!.location} • ${widget.event!.courtName}\n${_eventDuration(widget.event!)}'
+                    : widget.bookings.length == 1
+                    ? '${_booking!.courtName}\n${_booking!.timeRange}'
                     : '${widget.bookings.length} khung giờ đã đặt',
               ),
               trailing: Text(
                 '${formatVnd(_subtotal)}đ',
                 style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: CheckboxListTile(
+              value: _useWallet,
+              onChanged: session == null && walletBalance >= total
+                  ? (value) => setState(() => _useWallet = value ?? false)
+                  : null,
+              title: const Text('Thanh toán bằng ví'),
+              subtitle: Text(
+                'Số dư: ${formatVnd(walletBalance)}đ${walletBalance < total ? ' — chưa đủ để thanh toán toàn bộ' : ''}',
               ),
             ),
           ),
@@ -182,7 +231,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
           ],
           const SizedBox(height: 20),
           FilledButton.icon(
-            onPressed: checkout.isLoading
+            onPressed: _useWallet
+                ? _payWithWallet
+                : checkout.isLoading
                 ? null
                 : () => canOpenExistingSession
                       ? _openVnpay(session.paymentUrl)
@@ -202,7 +253,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                   )
                 : const Icon(Icons.open_in_new),
             label: Text(
-              session == null
+              _useWallet
+                  ? 'Thanh toán ${formatVnd(total)}đ bằng ví'
+                  : session == null
                   ? 'Thanh toán ${formatVnd(total)}đ qua VNPay'
                   : canOpenExistingSession
                   ? 'Mở lại cổng VNPay'
@@ -254,6 +307,12 @@ class _VnpayMethodCard extends StatelessWidget {
       trailing: Icon(Icons.check_circle, color: Color(0xFF16A34A)),
     ),
   );
+}
+
+String _eventDuration(SportEvent event) {
+  final hours = event.totalDurationMinutes ~/ 60;
+  final minutes = event.totalDurationMinutes % 60;
+  return minutes == 0 ? '$hours giờ' : '$hours giờ $minutes phút';
 }
 
 class _VnpayTransactionStatus extends ConsumerStatefulWidget {
