@@ -188,24 +188,45 @@ class CommunityFirestoreService {
     final registrationId = '${registration.eventId}_${registration.userId}';
     final eventRef = _events.doc(registration.eventId);
     final registrationRef = _registrations.doc(registrationId);
+
+    // Firestore Web SDK (JS interop) không thể truyền custom Dart exceptions
+    // qua ranh giới Promise. Dùng biến flag bên ngoài để capture lỗi,
+    // rồi throw SAU KHI transaction hoàn thành.
+    Object? _txError;
+
     await _db.runTransaction((transaction) async {
       debugPrint('Event ID: ${registration.eventId}');
-      final eventSnapshot = await transaction.get(eventRef);
+      _txError = null;
+
+      // Đọc tất cả documents song song trước khi thực hiện bất kỳ write nào.
+      final results = await Future.wait([
+        transaction.get(eventRef),
+        transaction.get(registrationRef),
+      ]);
+      final eventSnapshot = results[0];
+      final existingSnapshot = results[1];
+
       final eventData = eventSnapshot.data();
       if (!eventSnapshot.exists || eventData == null) {
-        throw StateError('Sự kiện không còn tồn tại.');
+        _txError = StateError('Sự kiện không còn tồn tại.');
+        return;
       }
-      final existing = await transaction.get(registrationRef);
-      if (existing.exists) throw const AlreadyJoinedException();
+      if (existingSnapshot.exists) {
+        _txError = const AlreadyJoinedException();
+        return;
+      }
+
       final event = SportEvent.fromJson(
         eventData,
         fallbackId: eventSnapshot.id,
       );
       if (!event.active ||
           event.isFull ||
-          event.startAt.isBefore(DateTime.now())) {
-        throw const CommunityCapacityException();
+          event.endAt.isBefore(DateTime.now())) {
+        _txError = const CommunityCapacityException();
+        return;
       }
+
       transaction.set(registrationRef, {
         ...registration.toJson(),
         '_id': registrationId,
@@ -216,6 +237,10 @@ class CommunityFirestoreService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
+
+    // Throw sau khi transaction kết thúc — an toàn với JS interop.
+    final err = _txError;
+    if (err != null) throw err;
   }
 
   Future<MatchmakingRoom> createRoom(
@@ -290,22 +315,41 @@ class CommunityFirestoreService {
     final roomRef = _rooms.doc(member.roomId);
     final memberId = '${member.roomId}_${member.userId}';
     final memberRef = _members.doc(memberId);
+
+    // Firestore Web SDK (JS interop) không thể truyền custom Dart exceptions
+    // qua ranh giới Promise. Dùng biến flag bên ngoài để capture lỗi.
+    Object? _txError;
+
     await _db.runTransaction((transaction) async {
       debugPrint('Matchmaking room ID: ${member.roomId}');
-      final roomSnapshot = await transaction.get(roomRef);
+      _txError = null;
+
+      // Đọc tất cả documents song song trước khi thực hiện bất kỳ write nào.
+      final results = await Future.wait([
+        transaction.get(roomRef),
+        transaction.get(memberRef),
+      ]);
+      final roomSnapshot = results[0];
+      final existingSnapshot = results[1];
+
       final roomData = roomSnapshot.data();
       if (!roomSnapshot.exists || roomData == null) {
-        throw StateError('Phòng ghép không còn tồn tại.');
+        _txError = StateError('Phòng ghép không còn tồn tại.');
+        return;
       }
-      final existing = await transaction.get(memberRef);
-      if (existing.exists) throw const AlreadyJoinedException();
+      if (existingSnapshot.exists) {
+        _txError = const AlreadyJoinedException();
+        return;
+      }
       final room = MatchmakingRoom.fromJson(
         roomData,
         fallbackId: roomSnapshot.id,
       );
       if (!room.isOpen || room.isFull) {
-        throw const CommunityCapacityException();
+        _txError = const CommunityCapacityException();
+        return;
       }
+
       transaction.set(memberRef, {
         ...member.toJson(),
         '_id': memberId,
@@ -313,6 +357,10 @@ class CommunityFirestoreService {
         'joinedAt': FieldValue.serverTimestamp(),
       });
     });
+
+    // Throw sau khi transaction kết thúc — an toàn với JS interop.
+    final err = _txError;
+    if (err != null) throw err;
   }
 
   Future<void> reviewJoinRequest({

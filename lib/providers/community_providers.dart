@@ -113,17 +113,24 @@ class CommunityActionNotifier extends AsyncNotifier<void> {
     } on CommunityValidationException catch (error) {
       state = const AsyncData(null);
       return error.message;
+    } on StateError catch (error, stackTrace) {
+      debugPrint('Community StateError: ${error.message}');
+      debugPrintStack(stackTrace: stackTrace);
+      state = const AsyncData(null);
+      return error.message;
     } on FirebaseException catch (error, stackTrace) {
-      debugPrint('Firestore error code: ${error.code}');
-      debugPrint('Firestore error message: ${error.message}');
+      debugPrint('Firebase error code: ${error.code}');
+      debugPrint('Firebase error message: ${error.message}');
+      debugPrint('Firebase plugin: ${error.plugin}');
       debugPrintStack(stackTrace: stackTrace);
       state = AsyncError(error, stackTrace);
       return communityFirestoreErrorMessage(error);
     } catch (error, stackTrace) {
+      debugPrint('Community action error type: ${error.runtimeType}');
       debugPrint('Community action error: $error');
       debugPrintStack(stackTrace: stackTrace);
       state = AsyncError(error, stackTrace);
-      return 'Không thể thực hiện thao tác lúc này.';
+      return 'Không thể thực hiện thao tác lúc này. ($error)';
     }
   }
 }
