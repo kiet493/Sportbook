@@ -372,6 +372,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
       allow update: if isAdmin()
         || (
+          // Người dùng đăng ký: chỉ tăng registeredCount + 1, sau khi event_registration được tạo.
           signedIn()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'registeredCount',
@@ -383,38 +384,60 @@ service cloud.firestore {
           && eventRegistrationAfter(eventId, request.auth.uid).eventId == eventId
           && eventRegistrationAfter(eventId, request.auth.uid).userId
             == request.auth.uid
-          || (
-            resource.data.createdBy == request.auth.uid
-            && request.resource.data.createdBy == resource.data.createdBy
-            && (
-              request.resource.data.status == resource.data.status
-              || request.resource.data.status == 'cancelled'
-            )
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'name', 'title', 'description', 'deadline', 'playerLevel',
-              'playStyle', 'teamPreference', 'minPlayers', 'maxPlayers',
-              'status', 'updatedAt'
-            ])
+        )
+        || (
+          // Chủ sự kiện cập nhật thông tin hoặc huỷ sự kiện.
+          signedIn()
+          && resource.data.createdBy == request.auth.uid
+          && request.resource.data.createdBy == resource.data.createdBy
+          && (
+            request.resource.data.status == resource.data.status
+            || request.resource.data.status == 'cancelled'
           )
-          || (
-            resource.data.createdBy == request.auth.uid
-            && resource.data.status == 'pending_payment'
-            && resource.data.paymentStatus == 'unpaid'
-            && request.resource.data.status == 'open'
-            && request.resource.data.paymentStatus == 'paid'
-            && request.resource.data.paymentMethod == 'wallet'
-            && request.resource.data.isActive == true
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'paymentStatus', 'paymentMethod', 'status', 'isActive',
-              'paidAt', 'updatedAt'
-            ])
-          )
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name', 'title', 'description', 'deadline', 'playerLevel',
+            'playStyle', 'teamPreference', 'minPlayers', 'maxPlayers',
+            'status', 'updatedAt'
+          ])
+        )
+        || (
+          // Chủ sự kiện xác nhận thanh toán: chuyển từ pending_payment → open.
+          signedIn()
+          && resource.data.createdBy == request.auth.uid
+          && resource.data.status == 'pending_payment'
+          && resource.data.paymentStatus == 'unpaid'
+          && request.resource.data.status == 'open'
+          && request.resource.data.paymentStatus == 'paid'
+          && request.resource.data.paymentMethod == 'wallet'
+          && request.resource.data.isActive == true
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'paymentStatus', 'paymentMethod', 'status', 'isActive',
+            'paidAt', 'updatedAt'
+          ])
         );
     }
 
     match /event_registrations/{registrationId} {
-      allow read: if isAdmin()
-        || (signedIn() && resource.data.userId == request.auth.uid);
+      // allow get: cần cho phép đọc kể cả khi document chưa tồn tại
+      // (transaction dùng get() để kiểm tra đăng ký trùng).
+      // Dùng pattern trên registrationId thay vì resource.data (null khi chưa tồn tại).
+      allow get: if isAdmin()
+        || (
+          signedIn()
+          && (
+            registrationId.matches('^[^_]+_' + request.auth.uid + '$')
+            || (resource != null && resource.data.userId == request.auth.uid)
+          )
+        );
+      // allow list: người dùng xem đăng ký của mình; chủ sự kiện xem danh sách.
+      allow list: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid)
+        || (
+          signedIn()
+          && resource.data.eventId is string
+          && get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.createdBy
+            == request.auth.uid
+        );
       allow create: if signedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.eventId is string
