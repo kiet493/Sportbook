@@ -24,11 +24,16 @@ class CreateEventPage extends ConsumerStatefulWidget {
 
 class _CreateEventPageState extends ConsumerState<CreateEventPage> {
   static const _hourlyRate = 50000;
+  static const _maxImages = 3;
 
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _capacityController = TextEditingController(text: '20');
+  final List<TextEditingController> _imageControllers = List.generate(
+    _maxImages,
+    (_) => TextEditingController(),
+  );
   ManagedVenue? _venue;
   SportCourt? _court;
   DateTime? _startDate;
@@ -49,11 +54,19 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
   int get _totalMinutes => _dayCount * _minutesPerDay;
   int get _totalPrice => (_totalMinutes * _hourlyRate / 60).round();
 
+  List<String> get _imageUrls => _imageControllers
+      .map((c) => c.text.trim())
+      .where((url) => url.isNotEmpty)
+      .toList();
+
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
     _capacityController.dispose();
+    for (final c in _imageControllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -224,6 +237,11 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
               },
             ),
             const SizedBox(height: 16),
+            _ImageUrlPicker(
+              controllers: _imageControllers,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: 16),
             _OrderSummary(
               dayCount: _dayCount,
               minutesPerDay: _minutesPerDay,
@@ -345,13 +363,18 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
     }
     final startAt = _atMinutes(startDate, _startMinutes);
     final endAt = _atMinutes(endDate, _endMinutes);
+    final imageUrls = _imageUrls;
+    final primaryImage = imageUrls.isNotEmpty
+        ? imageUrls.first
+        : (court.images.firstOrNull ?? venue.image);
     final event = SportEvent(
       id: '',
       title: _titleController.text.trim(),
       description: _descriptionController.text.trim(),
       sport: court.sport.isEmpty ? 'Thể thao' : court.sport,
       location: venue.name,
-      imageUrl: court.images.firstOrNull ?? venue.image,
+      imageUrl: primaryImage,
+      images: imageUrls,
       startAt: startAt,
       endAt: endAt,
       capacity: int.parse(_capacityController.text),
@@ -497,3 +520,163 @@ class _DateField extends StatelessWidget {
 
 String _formatDate(DateTime date) =>
     '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+
+/// Widget cho phép ng\u01b0\u1eddi d\u00f9ng nh\u1eadp t\u1ed1i \u0111a 3 URL \u1ea3nh v\u00e0 xem tr\u01b0\u1edbc.
+class _ImageUrlPicker extends StatefulWidget {
+  final List<TextEditingController> controllers;
+  final VoidCallback onChanged;
+
+  const _ImageUrlPicker({
+    required this.controllers,
+    required this.onChanged,
+  });
+
+  @override
+  State<_ImageUrlPicker> createState() => _ImageUrlPickerState();
+}
+
+class _ImageUrlPickerState extends State<_ImageUrlPicker> {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.photo_library_outlined, size: 18, color: Color(0xFF7E22CE)),
+              const SizedBox(width: 8),
+              const Text(
+                '\u1ea2nh s\u1ef1 ki\u1ec7n',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3E8FF),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'T\u1ed1i \u0111a 3 \u1ea3nh',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF7E22CE), fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'D\u00e1n \u0111\u01b0\u1eddng d\u1eabn URL \u1ea3nh (jpg, png...) \u0111\u1ec3 hi\u1ec3n th\u1ecb trong s\u1ef1 ki\u1ec7n.',
+            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 12),
+          for (int i = 0; i < widget.controllers.length; i++) ...[
+            _ImageUrlRow(
+              index: i,
+              controller: widget.controllers[i],
+              onChanged: () {
+                setState(() {});
+                widget.onChanged();
+              },
+            ),
+            if (i < widget.controllers.length - 1) const SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ImageUrlRow extends StatelessWidget {
+  final int index;
+  final TextEditingController controller;
+  final VoidCallback onChanged;
+
+  const _ImageUrlRow({
+    required this.index,
+    required this.controller,
+    required this.onChanged,
+  });
+
+  bool get _hasUrl => controller.text.trim().isNotEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          onChanged: (_) => onChanged(),
+          decoration: InputDecoration(
+            labelText: '\u1ea2nh ${index + 1}${index == 0 ? ' (ch\u00ednh)' : ' (t\u00f9y ch\u1ecdn)'}',
+            hintText: 'https://example.com/image.jpg',
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.link, size: 18),
+            suffixIcon: _hasUrl
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      controller.clear();
+                      onChanged();
+                    },
+                  )
+                : null,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+        ),
+        if (_hasUrl) ...[
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              controller.text.trim(),
+              height: 120,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                height: 80,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.broken_image_outlined, color: Color(0xFFB91C1C), size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'URL \u1ea3nh kh\u00f4ng h\u1ee3p l\u1ec7 ho\u1eb7c kh\u00f4ng t\u1ea3i \u0111\u01b0\u1ee3c.',
+                      style: TextStyle(color: Color(0xFFB91C1C), fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  height: 120,
+                  alignment: Alignment.center,
+                  child: CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                        : null,
+                    strokeWidth: 2,
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
