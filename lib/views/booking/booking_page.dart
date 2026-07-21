@@ -80,6 +80,21 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   ) + _addOnTotal;
   int get _addOnTotal => _addOns.fold<int>(0, (total, item) => total + item.total);
   int get _durationMinutes => BookingScheduleBoard.stepMinute;
+
+  /// Tổng thời lượng tính theo tổng số slot đã chọn × 30 phút.
+  int get _totalDurationMinutes =>
+      _selectedSlots.length * BookingScheduleBoard.stepMinute;
+
+  /// Nhãn thời lượng hiển thị dạng "X giờ Y phút" hoặc "X phút".
+  String get _durationLabel {
+    final total = _totalDurationMinutes;
+    if (total == 0) return '0 phút';
+    final hours = total ~/ 60;
+    final minutes = total % 60;
+    if (hours == 0) return '$total phút';
+    if (minutes == 0) return '$hours giờ';
+    return '$hours giờ $minutes phút';
+  }
   List<BookingAddOn> get _addOns => [
     for (final item in _addOnCatalog)
       if ((_addOnQuantities[item.name] ?? 0) > 0)
@@ -363,8 +378,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   if (_selectedSlots.isNotEmpty) ...[
                     const SizedBox(height: 10),
                     _SelectedSlotBanner(
-                      text:
-                          'Đã chọn ${_selectedSlots.length} khung giờ 30 phút',
+                      slotCount: _selectedSlots.length,
+                      durationLabel: _durationLabel,
                     ),
                   ],
                   const SizedBox(height: 16),
@@ -376,7 +391,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   BookingNotesBox(controller: _notesController),
                   const SizedBox(height: 16),
                   BookingPriceBreakdown(
-                    durationLabel: '30 phút',
+                    durationLabel: _durationLabel,
                     hourlyPrice: _hourlyPrice,
                     finalTotal: _finalTotal,
                   ),
@@ -507,9 +522,13 @@ class _DateStrip extends StatelessWidget {
 }
 
 class _SelectedSlotBanner extends StatelessWidget {
-  final String text;
+  final int slotCount;
+  final String durationLabel;
 
-  const _SelectedSlotBanner({required this.text});
+  const _SelectedSlotBanner({
+    required this.slotCount,
+    required this.durationLabel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -526,7 +545,7 @@ class _SelectedSlotBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              text,
+              'Đã chọn $slotCount khung giờ • Tổng thời lượng: $durationLabel',
               style: const TextStyle(
                 color: Color(0xFF166534),
                 fontWeight: FontWeight.w800,
