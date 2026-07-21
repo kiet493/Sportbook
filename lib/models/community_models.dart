@@ -5,6 +5,8 @@ class SportEvent {
   final String sport;
   final String location;
   final String imageUrl;
+  /// Danh sách URL ảnh do người tổ chức tải lên (tối đa 3 ảnh).
+  final List<String> images;
   final DateTime startAt;
   final DateTime endAt;
   final int capacity;
@@ -36,6 +38,7 @@ class SportEvent {
     required this.sport,
     required this.location,
     required this.imageUrl,
+    this.images = const [],
     required this.startAt,
     required this.endAt,
     required this.capacity,
@@ -70,6 +73,7 @@ class SportEvent {
     sport: sport,
     location: location,
     imageUrl: imageUrl,
+    images: images,
     startAt: startAt,
     endAt: endAt,
     capacity: capacity,
@@ -102,6 +106,7 @@ class SportEvent {
     'sport': sport,
     'location': location,
     'imageUrl': imageUrl,
+    'images': images,
     'startAt': startAt,
     'endAt': endAt,
     'capacity': capacity,
@@ -144,6 +149,8 @@ class SportEvent {
       ),
       location: _string(json['location'], ''),
       imageUrl: _string(json['imageUrl'], ''),
+      images: _stringList(json['images']),
+
       startAt: _date(json['startAt'] ?? json['startTime']) ?? now,
       endAt:
           _date(json['endAt'] ?? json['endTime']) ??
@@ -401,4 +408,14 @@ DateTime? _date(Object? value) {
   } catch (_) {
     return null;
   }
+}
+
+List<String> _stringList(Object? value) {
+  if (value is List) {
+    return value
+        .map((e) => e?.toString().trim() ?? '')
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+  return const [];
 }
