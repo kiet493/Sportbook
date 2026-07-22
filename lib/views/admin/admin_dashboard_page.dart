@@ -15,6 +15,7 @@ import 'manage_venues_page.dart';
 import 'manage_maintenance_page.dart';
 import 'statistics_page.dart';
 import 'staff_reports_page.dart';
+import 'manage_coupons_page.dart';
 
 enum _AdminSection {
   dashboard,
@@ -26,6 +27,7 @@ enum _AdminSection {
   consumables,
   news,
   policies,
+  coupons,
   statistics,
   reports,
 }
@@ -58,6 +60,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
       ),
       _AdminSection.news => ManageNewsPage(onBack: _showDashboard),
       _AdminSection.policies => ManagePoliciesPage(onBack: _showDashboard),
+      _AdminSection.coupons => ManageCouponsPage(onBack: _showDashboard),
       _AdminSection.statistics => StatisticsPage(onBack: _showDashboard),
       _AdminSection.reports => StaffReportsPage(onBack: _showDashboard),
       _AdminSection.dashboard => _DashboardHome(
@@ -69,6 +72,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
         onOpenConsumables: () => _open(_AdminSection.consumables),
         onOpenNews: () => _open(_AdminSection.news),
         onOpenPolicies: () => _open(_AdminSection.policies),
+        onOpenCoupons: () => _open(_AdminSection.coupons),
         onOpenStatistics: () => _open(_AdminSection.statistics),
         onOpenReports: () => _open(_AdminSection.reports),
         onLogout: _confirmLogout,
@@ -128,6 +132,7 @@ class _DashboardHome extends ConsumerWidget {
   final VoidCallback onOpenConsumables;
   final VoidCallback onOpenNews;
   final VoidCallback onOpenPolicies;
+  final VoidCallback onOpenCoupons;
   final VoidCallback onOpenStatistics;
   final VoidCallback onOpenReports;
   final VoidCallback onLogout;
@@ -142,6 +147,7 @@ class _DashboardHome extends ConsumerWidget {
     required this.onOpenConsumables,
     required this.onOpenNews,
     required this.onOpenPolicies,
+    required this.onOpenCoupons,
     required this.onOpenStatistics,
     required this.onOpenReports,
     required this.onLogout,
@@ -313,6 +319,14 @@ class _DashboardHome extends ConsumerWidget {
                 subtitle: 'CRUD danh mục và nội dung chính sách',
                 color: const Color(0xFF9333EA),
                 onTap: onOpenPolicies,
+              ),
+              const SizedBox(height: 10),
+              _AdminActionCard(
+                icon: Icons.local_offer_outlined,
+                title: 'Quản lý mã giảm giá',
+                subtitle: 'CRUD mã giảm giá cho người dùng đặt sân',
+                color: const Color(0xFFE11D48),
+                onTap: onOpenCoupons,
               ),
               const SizedBox(height: 10),
               _AdminActionCard(
