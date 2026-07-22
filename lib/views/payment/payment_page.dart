@@ -33,6 +33,13 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   Coupon? _coupon;
   String? _launchError;
   bool _useWallet = false;
+  final _couponController = TextEditingController();
+
+  @override
+  void dispose() {
+    _couponController.dispose();
+    super.dispose();
+  }
 
   CourtBooking? get _booking => widget.bookings.firstOrNull;
 
@@ -98,6 +105,109 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     setState(() {
       _launchError = 'Không thể mở cổng VNPay. Vui lòng cho phép mở tab mới.';
     });
+  }
+
+  void _applyManualCoupon(List<Coupon> items) {
+    final code = _couponController.text.trim().toUpperCase();
+    if (code.isEmpty) {
+      setState(() {
+        _coupon = null;
+        _launchError = null;
+      });
+      return;
+    }
+    final matched = items.cast<Coupon?>().firstWhere(
+      (item) => item?.code == code,
+      orElse: () => null,
+    );
+    if (matched != null) {
+      if (!matched.isApplicableTo(_subtotal, DateTime.now())) {
+        setState(() {
+          _coupon = null;
+          _launchError = 'Mã giảm giá không áp dụng cho đơn hàng này (tối thiểu ${formatVnd(matched.minOrder)}đ).';
+        });
+      } else {
+        setState(() {
+          _coupon = matched;
+          _launchError = null;
+        });
+      }
+    } else {
+      setState(() {
+        _coupon = null;
+        _launchError = 'Mã giảm giá không hợp lệ hoặc đã hết hạn.';
+      });
+    }
+  }
+
+  Widget _buildCouponInput(List<Coupon> items) {
+    final checkout = ref.watch(vnpayCheckoutProvider);
+    final session = checkout.valueOrNull;
+
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                const Icon(Icons.tag, color: Color(0xFF94A3B8), size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _couponController,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'Nhập mã giảm giá',
+                      hintStyle: TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 13,
+                        fontWeight: FontWeight.normal,
+                      ),
+                      border: InputBorder.none,
+                    ),
+                    textCapitalization: TextCapitalization.characters,
+                    enabled: session == null && !checkout.isLoading,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        ElevatedButton(
+          onPressed: session != null || checkout.isLoading
+              ? null
+              : () => _applyManualCoupon(items),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF2563EB),
+            foregroundColor: Colors.white,
+            elevation: 0,
+            minimumSize: const Size(80, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text(
+            "Áp dụng",
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -171,10 +281,29 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
           const SizedBox(height: 8),
           coupons.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, _) => const Text('Không tải được coupon.'),
-            data: (items) => items.isEmpty
-                ? const Text('Chưa có mã giảm giá khả dụng.')
-                : Wrap(
+            error: (_, _) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Không tải được coupon tự động từ server. Bạn có thể tự nhập mã.',
+                  style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                _buildCouponInput(const []),
+              ],
+            ),
+            data: (items) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildCouponInput(items),
+                if (items.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Hoặc chọn từ danh sách:',
+                    style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
@@ -186,15 +315,22 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                               ? null
                               : (_) {
                                   setState(() {
-                                    _coupon = _coupon?.id == item.id
-                                        ? null
-                                        : item;
+                                    if (_coupon?.id == item.id) {
+                                      _coupon = null;
+                                      _couponController.clear();
+                                    } else {
+                                      _coupon = item;
+                                      _couponController.text = item.code;
+                                    }
                                     _launchError = null;
                                   });
                                 },
                         ),
                     ],
                   ),
+                ],
+              ],
+            ),
           ),
           const SizedBox(height: 20),
           Card(
