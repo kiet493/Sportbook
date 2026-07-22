@@ -19,6 +19,44 @@ final couponsProvider = StreamProvider<List<Coupon>>(
   (ref) => ref.watch(paymentRepositoryProvider).watchCoupons(),
 );
 
+final allCouponsProvider = StreamProvider<List<Coupon>>(
+  (ref) => ref.watch(paymentRepositoryProvider).watchAllCoupons(),
+);
+
+class CouponActionNotifier extends AutoDisposeAsyncNotifier<void> {
+  @override
+  void build() {}
+
+  Future<String?> save(Coupon coupon) async {
+    state = const AsyncLoading();
+    try {
+      await ref.read(paymentRepositoryProvider).saveCoupon(coupon);
+      state = const AsyncData(null);
+      return null;
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      return error.toString();
+    }
+  }
+
+  Future<String?> delete(String id) async {
+    state = const AsyncLoading();
+    try {
+      await ref.read(paymentRepositoryProvider).deleteCoupon(id);
+      state = const AsyncData(null);
+      return null;
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      return error.toString();
+    }
+  }
+}
+
+final couponActionProvider =
+    AutoDisposeAsyncNotifierProvider<CouponActionNotifier, void>(
+      CouponActionNotifier.new,
+    );
+
 final transactionsProvider =
     StreamProvider.family<List<PaymentTransaction>, String>(
       (ref, userId) =>
