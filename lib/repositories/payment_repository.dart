@@ -19,6 +19,12 @@ class PaymentRepository {
 
   Stream<List<Coupon>> watchCoupons() => _service.watchCoupons();
 
+  Stream<List<Coupon>> watchAllCoupons() => _service.watchAllCoupons();
+
+  Future<void> saveCoupon(Coupon coupon) => _service.saveCoupon(coupon);
+
+  Future<void> deleteCoupon(String id) => _service.deleteCoupon(id);
+
   Stream<List<PaymentTransaction>> watchTransactions(String userId) =>
       _service.watchTransactions(userId);
 
