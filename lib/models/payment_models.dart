@@ -33,6 +33,24 @@ class Coupon {
     active: data['active'] != false,
     expiresAt: _date(data['expiresAt']),
   );
+
+  Coupon copyWith({
+    String? id,
+    String? code,
+    String? title,
+    int? discountAmount,
+    int? minOrder,
+    bool? active,
+    DateTime? expiresAt,
+  }) => Coupon(
+    id: id ?? this.id,
+    code: code ?? this.code,
+    title: title ?? this.title,
+    discountAmount: discountAmount ?? this.discountAmount,
+    minOrder: minOrder ?? this.minOrder,
+    active: active ?? this.active,
+    expiresAt: expiresAt ?? this.expiresAt,
+  );
 }
 
 class VnpayPaymentSession {

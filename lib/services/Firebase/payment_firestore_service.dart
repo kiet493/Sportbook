@@ -47,6 +47,36 @@ class PaymentFirestoreService {
         return items;
       });
 
+  Stream<List<Coupon>> watchAllCoupons() =>
+      _db.collection('coupons').snapshots().map((snapshot) {
+        final items = snapshot.docs
+            .map((doc) => Coupon.fromJson(doc.data(), doc.id))
+            .toList();
+        items.sort((a, b) => a.code.compareTo(b.code));
+        return items;
+      });
+
+  Future<void> saveCoupon(Coupon coupon) async {
+    final docRef = _db.collection('coupons').doc(coupon.id.isEmpty ? null : coupon.id);
+    final data = {
+      'code': coupon.code.trim().toUpperCase(),
+      'title': coupon.title.trim(),
+      'discountAmount': coupon.discountAmount,
+      'minOrder': coupon.minOrder,
+      'active': coupon.active,
+      'expiresAt': coupon.expiresAt != null ? Timestamp.fromDate(coupon.expiresAt!) : null,
+    };
+    if (coupon.id.isEmpty) {
+      await docRef.set(data);
+    } else {
+      await docRef.update(data);
+    }
+  }
+
+  Future<void> deleteCoupon(String id) async {
+    await _db.collection('coupons').doc(id).delete();
+  }
+
   Stream<List<PaymentTransaction>> watchTransactions(String userId) => _db
       .collection('transactions')
       .where('userId', isEqualTo: userId)
